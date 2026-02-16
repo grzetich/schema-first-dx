@@ -237,8 +237,26 @@ const DOCS = {
     subtitle: "Zero to first API call in 5 minutes",
     sections: [
       {
-        heading: "List Your Profiles",
-        body: "Every interaction starts with knowing which profiles you have. This query returns all connected social accounts.",
+        heading: "Install the SDK",
+        body: "The Buffer SDK handles authentication, retries, and rate limiting. Install it and initialize with your access token.",
+        code: `npm install @buffer/sdk`,
+        lang: "bash",
+      },
+      {
+        heading: "Hello, Buffer",
+        body: "Three lines to verify your connection. This lists every social account linked to your Buffer workspace.",
+        code: `import { Buffer } from "@buffer/sdk";
+
+const buffer = new Buffer({ accessToken: process.env.BUFFER_TOKEN });
+const profiles = await buffer.profiles.list();
+
+console.log(profiles.map(p => \`\${p.channel}: @\${p.username}\`));
+// → ["instagram: @mybrand", "linkedin: @mybrand", "x: @mybrand"]`,
+        lang: "javascript",
+      },
+      {
+        heading: "Or Use the GraphQL API Directly",
+        body: "Prefer raw GraphQL? Every SDK method maps 1:1 to the schema. Here's the same call in JavaScript, Python, and curl.",
         code: `const response = await fetch("https://api.buffer.com/graphql", {
   method: "POST",
   headers: {
@@ -253,6 +271,33 @@ const DOCS = {
 const { data } = await response.json();
 console.log(data.profiles);`,
         lang: "javascript",
+      },
+      {
+        heading: null,
+        body: null,
+        code: `import requests
+
+response = requests.post(
+    "https://api.buffer.com/graphql",
+    headers={
+        "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+        "Content-Type": "application/json",
+    },
+    json={"query": "{ profiles { id channel name username isConnected } }"},
+)
+
+profiles = response.json()["data"]["profiles"]
+print(profiles)`,
+        lang: "python",
+      },
+      {
+        heading: null,
+        body: null,
+        code: `curl -X POST https://api.buffer.com/graphql \\
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query": "{ profiles { id channel name username isConnected } }"}'`,
+        lang: "curl",
       },
       {
         heading: "Create & Schedule a Post",
@@ -501,7 +546,7 @@ scheduledAt: DateTime`,
       },
       {
         heading: "Try It Live",
-        body: "The 'Try with AI' tab on this site demonstrates this in practice. Claude is given only the raw schema — no custom instructions, no examples, no tool definitions. Type a task in plain English and watch it generate the correct GraphQL. The schema descriptions alone are sufficient.",
+        body: "The 'AI Preview' tab on this site demonstrates this in practice. Claude is given only the raw schema — no custom instructions, no examples, no tool definitions. Type a task in plain English and watch it generate the correct GraphQL. The schema descriptions alone are sufficient.",
       },
     ],
   },
@@ -584,7 +629,6 @@ function CodeBlock({ code, lang }) {
         background: "#1e2130",
         border: `1px solid ${colors.border}`,
         borderRadius: 8,
-        overflow: "hidden",
       }}>
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -669,7 +713,7 @@ function LandingPage({ onNavigate }) {
             padding: "12px 24px", borderRadius: 8, border: "none", cursor: "pointer",
             background: colors.accent, color: "#fff", fontSize: 14, fontWeight: 600, fontFamily: "inherit",
           }}>
-            Try with AI →
+            AI Preview →
           </button>
           <button onClick={() => onNavigate("quickstart")} style={{
             padding: "12px 24px", borderRadius: 8, border: `1px solid ${colors.border}`, cursor: "pointer",
@@ -719,14 +763,20 @@ function LandingPage({ onNavigate }) {
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           {[
-            { icon: "📐", title: "Annotated GraphQL Schema", desc: "1,100+ lines with descriptions designed for both human and AI consumption" },
-            { icon: "🚀", title: "Quickstart Guide", desc: "JavaScript, Python, and curl examples. Zero to first call in 5 minutes." },
-            { icon: "⚠️", title: "Error Reference", desc: "Every error with response bodies, explanations, and fixes. Not just a code table." },
-            { icon: "🔄", title: "Workflow Patterns", desc: "Content calendars, analytics dashboards, RSS pipelines, cross-channel publishing." },
-            { icon: "🤖", title: "AI-Native Design Doc", desc: "Why well-annotated schemas replace thick adapter layers for AI agents." },
-            { icon: "🔌", title: "Thin-Bridge MCP Server", desc: "~250 lines. Schema introspection → MCP tools. No manual mapping." },
+            { icon: "📐", title: "Annotated GraphQL Schema", desc: "1,100+ lines with descriptions designed for both human and AI consumption", link: "reference" },
+            { icon: "🚀", title: "Quickstart Guide", desc: "JavaScript, Python, and curl examples. Zero to first call in 5 minutes.", link: "quickstart" },
+            { icon: "⚠️", title: "Error Reference", desc: "Every error with response bodies, explanations, and fixes. Not just a code table.", link: "errors" },
+            { icon: "🔄", title: "Workflow Patterns", desc: "Content calendars, analytics dashboards, RSS pipelines, cross-channel publishing.", link: "workflows" },
+            { icon: "🤖", title: "AI-Native Design Doc", desc: "Why well-annotated schemas replace thick adapter layers for AI agents.", link: "design" },
+            { icon: "🔌", title: "Thin-Bridge MCP Server", desc: "~250 lines. Schema introspection → MCP tools. No manual mapping.", link: "mcp" },
           ].map((item, i) => (
-            <div key={i} style={{ padding: 16, borderRadius: 8, border: `1px solid ${colors.border}` }}>
+            <div key={i} onClick={() => onNavigate(item.link)} style={{
+              padding: 16, borderRadius: 8, border: `1px solid ${colors.border}`,
+              cursor: "pointer", transition: "all 0.2s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = colors.accent; e.currentTarget.style.background = colors.surfaceHover; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = colors.border; e.currentTarget.style.background = "transparent"; }}
+            >
               <div style={{ fontSize: 20, marginBottom: 8 }}>{item.icon}</div>
               <h3 style={{ fontSize: 14, fontWeight: 600, color: colors.text, margin: "0 0 6px" }}>{item.title}</h3>
               <p style={{ fontSize: 12, color: colors.textMuted, margin: 0, lineHeight: 1.5 }}>{item.desc}</p>
@@ -737,7 +787,7 @@ function LandingPage({ onNavigate }) {
 
       <div style={{ textAlign: "center", padding: "20px 0", borderTop: `1px solid ${colors.border}` }}>
         <p style={{ fontSize: 13, color: colors.textDim, margin: 0 }}>
-          Built by <a href="https://grzeti.ch" style={{ color: colors.accent, textDecoration: "none" }}>Ed Grzetic</a> as a proof of concept
+          Built by <a href="https://grzeti.ch" style={{ color: colors.accent, textDecoration: "none" }}>Ed Grzetich</a> as a proof of concept
           for the <a href="https://buffer.com/developer-api" style={{ color: colors.accent, textDecoration: "none" }}>Buffer Developer API</a> rebuild.
         </p>
       </div>
@@ -755,13 +805,17 @@ function DocsPage({ docKey }) {
       </h1>
       <p style={{ fontSize: 15, color: colors.textMuted, margin: "0 0 40px" }}>{doc.subtitle}</p>
       {doc.sections.map((section, i) => (
-        <div key={i} style={{ marginBottom: 40 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600, color: colors.text, margin: "0 0 10px" }}>
-            {section.heading}
-          </h2>
-          <p style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.7, margin: "0 0 4px" }}>
-            {section.body}
-          </p>
+        <div key={i} style={{ marginBottom: section.heading ? 40 : 16 }}>
+          {section.heading && (
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: colors.text, margin: "0 0 10px" }}>
+              {section.heading}
+            </h2>
+          )}
+          {section.body && (
+            <p style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.7, margin: "0 0 4px" }}>
+              {section.body}
+            </p>
+          )}
           {section.code && <CodeBlock code={section.code} lang={section.lang || "graphql"} />}
         </div>
       ))}
@@ -769,66 +823,209 @@ function DocsPage({ docKey }) {
   );
 }
 
-function ExplorerPage() {
-  const [tab, setTab] = useState("tools");
+// ─── SCHEMA REFERENCE DATA ──────────────────────────────────────────────────
+const SCHEMA_TYPES = {
+  queries: [
+    { name: "profile(id: ID!)", returns: "Profile", desc: "Get a single profile by its unique identifier" },
+    { name: "profiles(channel: Channel)", returns: "[Profile!]!", desc: "List all connected social media profiles" },
+    { name: "post(id: ID!)", returns: "Post", desc: "Get a single post by its unique identifier" },
+    { name: "posts(...filters)", returns: "PostConnection!", desc: "Search and filter posts across all profiles" },
+    { name: "tags", returns: "[Tag!]!", desc: "List all tags for organizing posts" },
+    { name: "webhooks", returns: "[Webhook!]!", desc: "List all registered webhook subscriptions" },
+    { name: "comments(postId: ID!)", returns: "CommentConnection!", desc: "Get comments on a published post" },
+    { name: "rateLimit", returns: "RateLimitInfo!", desc: "Get current rate limit status" },
+  ],
+  mutations: [
+    { name: "createPost(input)", desc: "Create a post for one profile. Omit scheduledAt → DRAFT, include it → QUEUED." },
+    { name: "createPosts(input)", desc: "Batch create across multiple profiles in one call." },
+    { name: "updatePost(input)", desc: "Edit a DRAFT or QUEUED post. SENT posts cannot be modified." },
+    { name: "deletePost(id)", desc: "Permanently delete a DRAFT or QUEUED post." },
+    { name: "unqueuePost(id)", desc: "Revert a queued post back to draft status." },
+    { name: "publishNow(id)", desc: "Publish a draft or queued post immediately." },
+    { name: "addToQueue(id)", desc: "Add a draft post to the next available queue slot." },
+    { name: "updateSchedule(input)", desc: "Set the weekly auto-publish schedule for a profile." },
+    { name: "createTag(input)", desc: "Create a new tag for organizing posts." },
+    { name: "tagPost(postId, tagId)", desc: "Add a tag to a post." },
+    { name: "untagPost(postId, tagId)", desc: "Remove a tag from a post." },
+    { name: "uploadMedia(file, altText)", desc: "Upload an image or video for later attachment to posts." },
+    { name: "createWebhook(input)", desc: "Register a webhook for real-time event notifications." },
+    { name: "deleteWebhook(id)", desc: "Delete a webhook subscription." },
+    { name: "replyToComment(commentId, text)", desc: "Reply to a comment on a published post." },
+  ],
+  types: [
+    { name: "Profile", fields: "id, channel, name, username, avatarUrl, timezone, isConnected, schedules, posts, analytics" },
+    { name: "Post", fields: "id, text, status, profile, media, scheduledAt, sentAt, createdAt, updatedAt, tags, error, analytics" },
+    { name: "Media", fields: "id, type, url, thumbnailUrl, altText, width, height" },
+    { name: "Schedule", fields: "id, days, times" },
+    { name: "Tag", fields: "id, name, color" },
+    { name: "Webhook", fields: "id, url, events, enabled, secret, createdAt" },
+    { name: "Comment", fields: "id, text, authorName, authorAvatarUrl, createdAt, isReplied, post" },
+    { name: "PostAnalytics", fields: "impressions, likes, comments, shares, clicks" },
+    { name: "ProfileAnalytics", fields: "followers, followersChange, postCount, impressions, totalEngagement, engagementRate" },
+    { name: "RateLimitInfo", fields: "limit, remaining, resetsAt, windowSeconds" },
+  ],
+  enums: [
+    { name: "Channel", values: "INSTAGRAM, FACEBOOK, LINKEDIN, X, BLUESKY, THREADS, TIKTOK, PINTEREST, YOUTUBE, MASTODON, GOOGLE_BUSINESS_PROFILE" },
+    { name: "PostStatus", values: "DRAFT, QUEUED, SENT, FAILED" },
+    { name: "MediaType", values: "IMAGE, VIDEO, LINK, DOCUMENT" },
+    { name: "AnalyticsPeriod", values: "WEEK, MONTH, QUARTER, YEAR, CUSTOM" },
+    { name: "PostSortOrder", values: "SCHEDULED_AT_DESC, SCHEDULED_AT_ASC, CREATED_AT_DESC, ENGAGEMENT_DESC" },
+    { name: "WebhookEvent", values: "POST_SENT, POST_FAILED, COMMENT_RECEIVED, PROFILE_CONNECTION_CHANGED, POST_UPDATED" },
+  ],
+};
+
+function APIReferencePage() {
+  const [section, setSection] = useState("reads");
+  return (
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "40px 20px" }}>
+      <h1 style={{ fontSize: 32, fontWeight: 700, color: colors.text, margin: "0 0 8px", fontFamily: "'DM Serif Display', Georgia, serif" }}>
+        API Reference
+      </h1>
+      <p style={{ fontSize: 15, color: colors.textMuted, margin: "0 0 24px" }}>
+        {SCHEMA_TYPES.queries.length} queries, {SCHEMA_TYPES.mutations.length} mutations, {SCHEMA_TYPES.types.length} types, {SCHEMA_TYPES.enums.length} enums.
+      </p>
+      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+        {[
+          { key: "reads", label: "Read Operations" },
+          { key: "writes", label: "Write Operations" },
+          { key: "types", label: "Types" },
+          { key: "enums", label: "Enums" },
+        ].map(t => (
+          <button key={t.key} onClick={() => setSection(t.key)} style={{
+            padding: "6px 16px", borderRadius: 6, border: `1px solid ${section === t.key ? colors.accent : colors.border}`,
+            background: section === t.key ? colors.accentSoft : "transparent",
+            color: section === t.key ? colors.accent : colors.textMuted,
+            cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: 500,
+            
+          }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {section === "reads" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {SCHEMA_TYPES.queries.map(q => (
+            <div key={q.name} style={{
+              padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                <code style={{ fontSize: 13, color: colors.accent }}>{q.name}</code>
+                <code style={{ fontSize: 11, color: colors.cyan }}>{q.returns}</code>
+              </div>
+              <p style={{ fontSize: 12, color: colors.textMuted, margin: 0 }}>{q.desc}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {section === "writes" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {SCHEMA_TYPES.mutations.map(m => (
+            <div key={m.name} style={{
+              padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
+            }}>
+              <code style={{ fontSize: 13, color: colors.amber, display: "block", marginBottom: 4 }}>{m.name}</code>
+              <p style={{ fontSize: 12, color: colors.textMuted, margin: 0 }}>{m.desc}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {section === "types" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {SCHEMA_TYPES.types.map(t => (
+            <div key={t.name} style={{
+              padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
+            }}>
+              <code style={{ fontSize: 14, color: colors.text, fontWeight: 600, display: "block", marginBottom: 4 }}>{t.name}</code>
+              <p style={{ fontSize: 12, color: colors.textMuted, margin: 0, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}>{t.fields}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {section === "enums" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {SCHEMA_TYPES.enums.map(e => (
+            <div key={e.name} style={{
+              padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
+            }}>
+              <code style={{ fontSize: 14, color: colors.text, fontWeight: 600, display: "block", marginBottom: 4 }}>{e.name}</code>
+              <p style={{ fontSize: 12, color: colors.textMuted, margin: 0, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}>{e.values}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MCPServerPage() {
   const reads = MCP_TOOLS.filter(t => t.type === "read");
   const writes = MCP_TOOLS.filter(t => t.type === "write");
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "40px 20px" }}>
       <h1 style={{ fontSize: 32, fontWeight: 700, color: colors.text, margin: "0 0 8px", fontFamily: "'DM Serif Display', Georgia, serif" }}>
-        API Explorer
+        MCP Server
       </h1>
-      <p style={{ fontSize: 15, color: colors.textMuted, margin: "0 0 24px" }}>
-        {MCP_TOOLS.length} MCP tools auto-generated from the GraphQL schema via introspection.
+      <p style={{ fontSize: 15, color: colors.textMuted, margin: "0 0 8px" }}>
+        {MCP_TOOLS.length} tools auto-generated from the GraphQL schema via introspection. ~250 lines of glue code.
       </p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-        {["tools", "schema"].map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding: "6px 16px", borderRadius: 6, border: `1px solid ${tab === t ? colors.accent : colors.border}`,
-            background: tab === t ? colors.accentSoft : "transparent",
-            color: tab === t ? colors.accent : colors.textMuted,
-            cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: 500,
+      <p style={{ fontSize: 13, color: colors.textDim, margin: "0 0 32px" }}>
+        The server reads the schema, turns each query into a read tool and each mutation into a write tool. Names, descriptions, 
+        and parameters come directly from the type definitions. When the schema evolves, tools update automatically.
+      </p>
+
+      <h3 style={{ fontSize: 13, color: colors.green, fontWeight: 600, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: 1 }}>
+        Read ({reads.length})
+      </h3>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 24 }}>
+        {reads.map(t => (
+          <div key={t.name} style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "10px 14px", borderRadius: 6, border: `1px solid ${colors.border}`,
+            background: colors.surface,
           }}>
-            {t === "tools" ? "MCP Tools" : "Schema Preview"}
-          </button>
+            <code style={{ fontSize: 13, color: colors.cyan }}>{t.name}</code>
+            <span style={{ fontSize: 12, color: colors.textMuted }}>{t.desc}</span>
+          </div>
         ))}
       </div>
-      {tab === "tools" ? (
-        <div>
-          <h3 style={{ fontSize: 13, color: colors.green, fontWeight: 600, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: 1 }}>
-            Read ({reads.length})
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 24 }}>
-            {reads.map(t => (
-              <div key={t.name} style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                padding: "10px 14px", borderRadius: 6, border: `1px solid ${colors.border}`,
-                background: colors.surface,
-              }}>
-                <code style={{ fontSize: 13, color: colors.cyan }}>{t.name}</code>
-                <span style={{ fontSize: 12, color: colors.textMuted }}>{t.desc}</span>
-              </div>
-            ))}
+      <h3 style={{ fontSize: 13, color: colors.amber, fontWeight: 600, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: 1 }}>
+        Write ({writes.length})
+      </h3>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 32 }}>
+        {writes.map(t => (
+          <div key={t.name} style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "10px 14px", borderRadius: 6, border: `1px solid ${colors.border}`,
+            background: colors.surface,
+          }}>
+            <code style={{ fontSize: 13, color: colors.amber }}>{t.name}</code>
+            <span style={{ fontSize: 12, color: colors.textMuted }}>{t.desc}</span>
           </div>
-          <h3 style={{ fontSize: 13, color: colors.amber, fontWeight: 600, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: 1 }}>
-            Write ({writes.length})
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {writes.map(t => (
-              <div key={t.name} style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                padding: "10px 14px", borderRadius: 6, border: `1px solid ${colors.border}`,
-                background: colors.surface,
-              }}>
-                <code style={{ fontSize: 13, color: colors.amber }}>{t.name}</code>
-                <span style={{ fontSize: 12, color: colors.textMuted }}>{t.desc}</span>
-              </div>
-            ))}
-          </div>
+        ))}
+      </div>
+
+      <div style={{
+        border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24,
+        background: colors.surface,
+      }}>
+        <h3 style={{ fontSize: 15, fontWeight: 600, color: colors.text, margin: "0 0 10px" }}>
+          The thin bridge pattern
+        </h3>
+        <div style={{ fontSize: 13, color: colors.textMuted, lineHeight: 1.7 }}>
+          <p style={{ margin: "0 0 10px" }}>
+            The MCP server is intentionally minimal. It reads the schema via introspection and exposes each 
+            operation as a tool. No hand-written descriptions, no manual parameter mapping, no domain logic in the bridge.
+          </p>
+          <p style={{ margin: 0 }}>
+            When an AI agent struggles with a tool, that's a signal the <strong style={{ color: colors.text }}>schema description</strong> needs 
+            improvement, not the bridge. Fix the source of truth and every consumer benefits: docs, IDEs, MCP tools, and direct API callers.
+          </p>
         </div>
-      ) : (
-        <CodeBlock code={SCHEMA_FOR_AI} lang="graphql" />
-      )}
+      </div>
     </div>
   );
 }
@@ -872,7 +1069,7 @@ function AIPage() {
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "40px 20px" }}>
       <h1 style={{ fontSize: 32, fontWeight: 700, color: colors.text, margin: "0 0 8px", fontFamily: "'DM Serif Display', Georgia, serif" }}>
-        Try with AI
+        AI Preview
       </h1>
       <p style={{ fontSize: 15, color: colors.textMuted, margin: "0 0 8px" }}>
         These queries were generated by Claude using only the GraphQL schema as context. 
@@ -979,15 +1176,17 @@ export default function App() {
     { key: "quickstart", label: "Quickstart", icon: "▸" },
     { key: "errors", label: "Errors", icon: "⚠" },
     { key: "workflows", label: "Workflows", icon: "⟳" },
+    { key: "reference", label: "API Reference", icon: "⬡" },
+    { key: "mcp", label: "MCP Server", icon: "🔌" },
     { key: "design", label: "AI Design", icon: "◇" },
-    { key: "explorer", label: "Explorer", icon: "⬡" },
-    { key: "ai", label: "Try with AI", icon: "✦" },
+    { key: "ai", label: "AI Preview", icon: "✦" },
   ];
 
   const renderPage = () => {
     switch (page) {
       case "landing": return <LandingPage onNavigate={setPage} />;
-      case "explorer": return <ExplorerPage />;
+      case "reference": return <APIReferencePage />;
+      case "mcp": return <MCPServerPage />;
       case "ai": return <AIPage />;
       default: return <DocsPage docKey={page} />;
     }
@@ -1038,7 +1237,7 @@ export default function App() {
         <div style={{
           position: "sticky", top: 0, zIndex: 10, display: "flex", alignItems: "center",
           padding: "10px 20px", background: `${colors.bg}f0`, backdropFilter: "blur(12px)",
-          borderBottom: `1px solid ${colors.border}`,
+          boxShadow: "0 1px 0 rgba(0,0,0,0.06)",
         }}>
           <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
             background: "none", border: "none", color: colors.textMuted, cursor: "pointer",

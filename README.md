@@ -71,4 +71,4 @@ buffer-devex-kit/            # Schema, docs, and MCP server
 
 Buffer is [rebuilding their public API](https://buffer.com/resources/rebuilding-buffers-api/) after shutting down the original REST API in 2019. This kit explores what the developer experience could look like, informed by research on how API documentation formats affect AI code generation.
 
-Built by [Ed Grzetic](https://grzeti.ch).
+Built by [Ed Grzetich](https://grzeti.ch).
