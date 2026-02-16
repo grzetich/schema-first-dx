@@ -302,53 +302,136 @@ print(profiles)`,
       {
         heading: "Create & Schedule a Post",
         body: "Include scheduledAt to queue it. Omit it to save as a draft. Always check the success and error fields.",
-        code: `mutation($input: CreatePostInput!) {
-  createPost(input: $input) {
-    success
-    post { id status scheduledAt }
-    error
-  }
-}
+        code: `const response = await fetch("https://api.buffer.com/graphql", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    query: \`mutation($input: CreatePostInput!) {
+      createPost(input: $input) {
+        success
+        post { id status scheduledAt }
+        error
+      }
+    }\`,
+    variables: {
+      input: {
+        profileId: "prof_abc123",
+        text: "Excited to share what we've been working on! 🚀",
+        scheduledAt: "2025-04-01T14:30:00Z",
+      },
+    },
+  }),
+});
 
-# Variables:
-{
-  "input": {
-    "profileId": "prof_abc123",
-    "text": "Excited to share what we've been working on! 🚀",
-    "scheduledAt": "2025-04-01T14:30:00Z"
-  }
-}`,
-        lang: "graphql",
+const { data } = await response.json();
+console.log(data.createPost.post);`,
+        lang: "javascript",
+      },
+      {
+        heading: null,
+        body: null,
+        code: `response = requests.post(
+    "https://api.buffer.com/graphql",
+    headers={
+        "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+        "Content-Type": "application/json",
+    },
+    json={
+        "query": """mutation($input: CreatePostInput!) {
+            createPost(input: $input) {
+                success
+                post { id status scheduledAt }
+                error
+            }
+        }""",
+        "variables": {
+            "input": {
+                "profileId": "prof_abc123",
+                "text": "Excited to share what we've been working on! 🚀",
+                "scheduledAt": "2025-04-01T14:30:00Z"
+            }
+        }
+    },
+)
+
+print(response.json()["data"]["createPost"])`,
+        lang: "python",
       },
       {
         heading: "Post to Multiple Channels",
         body: "Use createPosts (plural) to publish across platforms in one call. Customize the text for each channel's audience and character limits.",
-        code: `mutation($input: CreatePostsInput!) {
-  createPosts(input: $input) {
-    success
-    results {
-      success
-      post { id profile { channel } status }
-      error
-    }
-  }
-}`,
-        lang: "graphql",
+        code: `const response = await fetch("https://api.buffer.com/graphql", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    query: \`mutation($input: CreatePostsInput!) {
+      createPosts(input: $input) {
+        success
+        results {
+          success
+          post { id profile { channel } status }
+          error
+        }
+      }
+    }\`,
+    variables: {
+      input: {
+        posts: [
+          {
+            profileId: "prof_ig_001",
+            text: "New feature alert! 🎉 Link in bio for details.",
+            scheduledAt: "2025-04-01T14:30:00Z",
+          },
+          {
+            profileId: "prof_li_002",
+            text: "We just shipped a feature that changes how teams collaborate on content. Here's what it does and why it matters.",
+            scheduledAt: "2025-04-01T14:30:00Z",
+          },
+        ],
+      },
+    },
+  }),
+});
+
+const { data } = await response.json();
+data.createPosts.results.forEach(r =>
+  console.log(r.post.profile.channel, r.success)
+);`,
+        lang: "javascript",
       },
       {
         heading: "Set Up Webhooks",
         body: "Instead of polling (which ate the old API's 60 req/min budget), register a webhook and get notified in real time when posts publish, fail, or receive comments.",
-        code: `mutation {
-  createWebhook(input: {
-    url: "https://myapp.com/webhooks/buffer"
-    events: [POST_SENT, POST_FAILED, COMMENT_RECEIVED]
-  }) {
-    success
-    webhook { id secret events }
-    error
-  }
-}`,
-        lang: "graphql",
+        code: `const response = await fetch("https://api.buffer.com/graphql", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    query: \`mutation {
+      createWebhook(input: {
+        url: "https://myapp.com/webhooks/buffer"
+        events: [POST_SENT, POST_FAILED, COMMENT_RECEIVED]
+      }) {
+        success
+        webhook { id secret events }
+        error
+      }
+    }\`,
+  }),
+});
+
+const { data } = await response.json();
+// Save the secret for verifying webhook signatures
+console.log("Webhook secret:", data.createWebhook.webhook.secret);`,
+        lang: "javascript",
       },
     ],
   },
@@ -705,8 +788,8 @@ function LandingPage({ onNavigate }) {
         </h1>
         <p style={{ fontSize: 17, lineHeight: 1.7, color: colors.textMuted, maxWidth: 600, margin: "0 0 32px" }}>
           A proof of concept exploring how to build developer documentation that works for
-          humans reading docs, AI agents parsing schemas, and everyone in between. Built
-          as a response to the gaps in Buffer's original API documentation.
+          humans reading docs, AI agents parsing schemas, and everyone in between. Inspired
+          by Buffer's API rebuild and designed to show what modern developer experience could look like.
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <button onClick={() => onNavigate("ai")} style={{
@@ -970,11 +1053,12 @@ function MCPServerPage() {
         MCP Server
       </h1>
       <p style={{ fontSize: 15, color: colors.textMuted, margin: "0 0 8px" }}>
-        {MCP_TOOLS.length} tools auto-generated from the GraphQL schema via introspection. ~250 lines of glue code.
+        A well-annotated GraphQL schema can be rapidly integrated into an MCP server, giving AI agents direct access to the API without manual tool definitions.
       </p>
       <p style={{ fontSize: 13, color: colors.textDim, margin: "0 0 32px" }}>
-        The server reads the schema, turns each query into a read tool and each mutation into a write tool. Names, descriptions, 
-        and parameters come directly from the type definitions. When the schema evolves, tools update automatically.
+        {MCP_TOOLS.length} tools generated from the schema via introspection. ~250 lines of glue code.
+        The server reads the schema, turns each query into a read tool and each mutation into a write tool. 
+        Names, descriptions, and parameters come directly from the type definitions. When the schema evolves, tools update automatically.
       </p>
 
       <h3 style={{ fontSize: 13, color: colors.green, fontWeight: 600, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: 1 }}>
@@ -1072,12 +1156,13 @@ function AIPage() {
         AI Preview
       </h1>
       <p style={{ fontSize: 15, color: colors.textMuted, margin: "0 0 8px" }}>
-        These queries were generated by Claude using only the GraphQL schema as context. 
-        No custom instructions, no few-shot examples, no tool definitions. Just the raw type system with its annotations.
+        Pre-recorded responses showing how Claude identifies the correct API operations from natural language prompts, 
+        using only the GraphQL schema as context. No custom instructions, no few-shot examples, no tool definitions.
       </p>
       <p style={{ fontSize: 13, color: colors.textDim, margin: "0 0 32px" }}>
-        Click any prompt to see the generated GraphQL. This demonstrates the core thesis: well-annotated schemas 
-        are the best documentation format for AI code generation.
+        This is a simulated preview, not a live API call. The purpose is to demonstrate that well-annotated schema 
+        descriptions are sufficient for a model to select the right operations and structure valid queries. 
+        Variable values and placeholder IDs are illustrative.
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 32 }}>
@@ -1147,13 +1232,12 @@ function AIPage() {
         </h3>
         <div style={{ fontSize: 13, color: colors.textMuted, lineHeight: 1.7 }}>
           <p style={{ margin: "0 0 10px" }}>
-            Claude received the GraphQL schema as its only context. No few-shot examples.
+            These responses were generated by giving Claude the GraphQL schema as its only context. No few-shot examples.
             No system prompt explaining Buffer's domain. No MCP tool definitions. Just the type system with its annotations.
           </p>
           <p style={{ margin: "0 0 10px" }}>
-            When the schema descriptions are thorough enough, the model can infer correct queries from the type definitions alone.
-            Character limits are in the Channel enum. Draft vs. queued behavior is in the scheduledAt description.
-            Required fields are marked with <code style={{ color: colors.cyan }}>!</code>.
+            The demo is pre-recorded to show that the model correctly identifies which operations to use and how to 
+            structure queries. Variable values and IDs are illustrative. The key takeaway is operation selection, not runtime execution.
           </p>
           <p style={{ margin: 0 }}>
             This is the core thesis: <strong style={{ color: colors.text }}>well-annotated schemas eliminate the need for thick
