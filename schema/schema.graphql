@@ -1,0 +1,1136 @@
+"""
+Buffer Public API Schema (Proof of Concept)
+
+This schema models Buffer's social media management capabilities as a GraphQL API.
+Every type, field, and argument includes a description designed to be clear to both
+human developers reading documentation and AI agents constructing queries.
+
+Schema design principle: if a description is ambiguous to an LLM, it's ambiguous
+to a junior developer. Fix the description, not the tooling layer.
+"""
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Enums
+# ──────────────────────────────────────────────────────────────────────────────
+
+"""
+The social media platform a profile is connected to.
+Use this to filter profiles or to understand which platform-specific
+constraints apply (character limits, media types, scheduling rules).
+"""
+enum Channel {
+  "Instagram — supports images, carousels, reels, and stories"
+  INSTAGRAM
+
+  "Facebook — supports text posts, images, videos, and link previews"
+  FACEBOOK
+
+  "LinkedIn — supports text posts, articles, images, and documents"
+  LINKEDIN
+
+  "X (formerly Twitter) — supports text posts up to 280 characters, images, and threads"
+  X
+
+  "Bluesky — supports text posts up to 300 characters and images"
+  BLUESKY
+
+  "Threads — supports text posts up to 500 characters and images"
+  THREADS
+
+  "TikTok — supports short-form video content"
+  TIKTOK
+
+  "Pinterest — supports image pins and idea pins with descriptions"
+  PINTEREST
+
+  "YouTube — supports video uploads with titles, descriptions, and tags"
+  YOUTUBE
+
+  "Mastodon — supports text posts up to 500 characters and images"
+  MASTODON
+
+  "Google Business Profile — supports business updates and offers"
+  GOOGLE_BUSINESS_PROFILE
+}
+
+"""
+The lifecycle state of a post within Buffer.
+A post moves through these states: DRAFT -> QUEUED -> SENT.
+Posts can also be moved back from QUEUED to DRAFT.
+"""
+enum PostStatus {
+  "The post is saved but not scheduled. It will not be published automatically."
+  DRAFT
+
+  "The post is scheduled and will be published at the specified time."
+  QUEUED
+
+  "The post has been successfully published to the target channel."
+  SENT
+
+  "The post failed to publish. Check the error field for details."
+  FAILED
+}
+
+"""
+The type of media attached to a post.
+Not all media types are supported on all channels.
+"""
+enum MediaType {
+  "A static image (JPEG, PNG, GIF, WebP)"
+  IMAGE
+
+  "A video file (MP4, MOV)"
+  VIDEO
+
+  "A link preview generated from a URL included in the post text"
+  LINK
+
+  "A document file (PDF) — supported on LinkedIn only"
+  DOCUMENT
+}
+
+"""
+The time period for analytics aggregation.
+Use this when querying performance metrics to specify the reporting window.
+"""
+enum AnalyticsPeriod {
+  "Last 7 days from today"
+  WEEK
+
+  "Last 30 days from today"
+  MONTH
+
+  "Last 90 days from today"
+  QUARTER
+
+  "Last 365 days from today"
+  YEAR
+
+  "A custom date range specified by startDate and endDate arguments"
+  CUSTOM
+}
+
+"""
+How to sort a list of posts.
+"""
+enum PostSortOrder {
+  "Most recently scheduled first"
+  SCHEDULED_AT_DESC
+
+  "Earliest scheduled first"
+  SCHEDULED_AT_ASC
+
+  "Most recently created first"
+  CREATED_AT_DESC
+
+  "Highest engagement first (likes + comments + shares)"
+  ENGAGEMENT_DESC
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Core Types
+# ──────────────────────────────────────────────────────────────────────────────
+
+"""
+A connected social media account in Buffer.
+
+A profile represents one account on one platform. A single Buffer user
+typically has multiple profiles (e.g., one Instagram profile, one LinkedIn
+profile, one X profile). Each profile has its own posting schedule,
+analytics, and queue of posts.
+"""
+type Profile {
+  "Unique identifier for this profile"
+  id: ID!
+
+  "The social media platform this profile is connected to"
+  channel: Channel!
+
+  "The display name shown on the social media platform (e.g., 'Buffer' or 'Joel Gascoigne')"
+  name: String!
+
+  "The username or handle on the platform, without the @ symbol (e.g., 'buffer' not '@buffer')"
+  username: String!
+
+  "URL to the profile's avatar image on the social media platform"
+  avatarUrl: String
+
+  "The IANA timezone used for scheduling posts on this profile (e.g., 'America/New_York')"
+  timezone: String!
+
+  "Whether this profile is currently connected and able to publish. A false value means the connection needs to be reauthorized."
+  isConnected: Boolean!
+
+  """
+  The posting schedule for this profile.
+  Returns the weekly time slots when queued posts will be automatically published.
+  """
+  schedules: [Schedule!]!
+
+  """
+  Posts associated with this profile.
+  Defaults to returning the 20 most recently scheduled posts across all statuses.
+  Use the status filter to narrow to specific lifecycle states.
+  """
+  posts(
+    "Filter posts by lifecycle state. Omit to return posts in all states."
+    status: PostStatus
+    "Maximum number of posts to return. Default: 20, Maximum: 100."
+    limit: Int = 20
+    "Cursor for pagination. Use the endCursor from the previous page's PageInfo."
+    after: String
+    "How to order the results. Default: most recently scheduled first."
+    sortBy: PostSortOrder = SCHEDULED_AT_DESC
+  ): PostConnection!
+
+  """
+  Performance metrics for this profile over a specified time period.
+  Returns aggregate engagement data (followers, impressions, engagement rate).
+  """
+  analytics(
+    "The time window for metrics. Default: MONTH (last 30 days)."
+    period: AnalyticsPeriod = MONTH
+    "Start of a custom date range. Required when period is CUSTOM. Format: YYYY-MM-DD."
+    startDate: String
+    "End of a custom date range. Required when period is CUSTOM. Format: YYYY-MM-DD."
+    endDate: String
+  ): ProfileAnalytics!
+}
+
+"""
+A piece of content to be published on one or more social media channels.
+
+A post contains the text, media, and scheduling information for a single
+social media update. A post targets one specific profile (channel). To
+publish the same content across multiple channels, create one post per
+profile using the createPosts mutation (plural).
+"""
+type Post {
+  "Unique identifier for this post"
+  id: ID!
+
+  "The text content of the post. May include hashtags, mentions, and URLs."
+  text: String!
+
+  "The current lifecycle state of this post (DRAFT, QUEUED, SENT, or FAILED)"
+  status: PostStatus!
+
+  "The profile (social media account) this post is targeted to"
+  profile: Profile!
+
+  "Media files attached to this post. Empty array if the post is text-only."
+  media: [Media!]!
+
+  "When this post is scheduled to be published. Null for drafts without a scheduled time."
+  scheduledAt: DateTime
+
+  "When this post was actually published. Null if the post has not been sent yet."
+  sentAt: DateTime
+
+  "When this post was created in Buffer"
+  createdAt: DateTime!
+
+  "When this post was last modified"
+  updatedAt: DateTime!
+
+  "Tags applied to this post for organization and campaign tracking"
+  tags: [Tag!]!
+
+  """
+  If the post failed to publish, this field contains a human-readable error message
+  explaining what went wrong (e.g., 'Image exceeds maximum file size for Instagram').
+  Null if the post has not failed.
+  """
+  error: String
+
+  """
+  Performance metrics for this specific post.
+  Only available for posts with status SENT. Returns null for drafts and queued posts.
+  """
+  analytics: PostAnalytics
+}
+
+"""
+A media attachment on a post.
+"""
+type Media {
+  "Unique identifier for this media item"
+  id: ID!
+
+  "The type of media (IMAGE, VIDEO, LINK, or DOCUMENT)"
+  type: MediaType!
+
+  "URL where the media file can be accessed"
+  url: String!
+
+  "URL to a smaller preview/thumbnail version of the media. Available for images and videos."
+  thumbnailUrl: String
+
+  "Alt text for accessibility. Strongly recommended for images."
+  altText: String
+
+  "Width of the media in pixels. Available for images and videos."
+  width: Int
+
+  "Height of the media in pixels. Available for images and videos."
+  height: Int
+}
+
+"""
+A weekly posting schedule for a profile.
+
+Each schedule defines which days of the week and at what times Buffer
+will automatically publish queued posts. A profile can have multiple
+schedules (e.g., different times on weekdays vs. weekends).
+"""
+type Schedule {
+  "Unique identifier for this schedule"
+  id: ID!
+
+  """
+  Days of the week this schedule is active.
+  Values are lowercase English day names: 'monday', 'tuesday', 'wednesday',
+  'thursday', 'friday', 'saturday', 'sunday'.
+  """
+  days: [String!]!
+
+  """
+  Times of day when posts will be published on the active days.
+  Values are in 24-hour format in the profile's timezone (e.g., '09:00', '14:30', '18:00').
+  Each time slot publishes one post from the queue.
+  """
+  times: [String!]!
+}
+
+"""
+A tag for organizing posts by campaign, topic, or category.
+Tags help track the performance of related content across profiles and channels.
+"""
+type Tag {
+  "Unique identifier for this tag"
+  id: ID!
+
+  "The display name of the tag (e.g., 'Product Launch', 'Q1 Campaign', 'Tips')"
+  name: String!
+
+  "A hex color code for visual identification in the Buffer UI (e.g., '#FF6B6B')"
+  color: String!
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Analytics Types
+# ──────────────────────────────────────────────────────────────────────────────
+
+"""
+Aggregate performance metrics for a profile over a specified time period.
+All counts are totals for the period, not averages.
+"""
+type ProfileAnalytics {
+  "The profile these metrics belong to"
+  profile: Profile!
+
+  "Total number of followers at the end of the reporting period"
+  followers: Int!
+
+  "Net change in followers during the reporting period (positive = gained, negative = lost)"
+  followersChange: Int!
+
+  "Total number of posts published during the reporting period"
+  postCount: Int!
+
+  "Total number of times posts were displayed to users during the reporting period"
+  impressions: Int!
+
+  "Total engagement actions (likes + comments + shares + clicks) during the reporting period"
+  totalEngagement: Int!
+
+  """
+  Engagement rate as a percentage (0.0 to 100.0).
+  Calculated as (totalEngagement / impressions) * 100.
+  Returns 0.0 if there are no impressions in the period.
+  """
+  engagementRate: Float!
+
+  "The start date of the reporting period (YYYY-MM-DD)"
+  periodStart: String!
+
+  "The end date of the reporting period (YYYY-MM-DD)"
+  periodEnd: String!
+
+  """
+  Daily breakdown of key metrics within the reporting period.
+  Useful for charting trends over time.
+  """
+  dailyBreakdown: [DailyMetrics!]!
+}
+
+"""
+Performance metrics for a single day within a reporting period.
+"""
+type DailyMetrics {
+  "The date these metrics represent (YYYY-MM-DD)"
+  date: String!
+
+  "Number of posts published on this day"
+  postCount: Int!
+
+  "Number of times posts were displayed to users on this day"
+  impressions: Int!
+
+  "Total engagement actions on this day"
+  engagement: Int!
+
+  "Net follower change on this day"
+  followersChange: Int!
+}
+
+"""
+Performance metrics for a single published post.
+Only available for posts with status SENT.
+"""
+type PostAnalytics {
+  "The post these metrics belong to"
+  post: Post!
+
+  "Number of times this post was displayed to users"
+  impressions: Int!
+
+  "Number of times users interacted with this post (clicked, liked, commented, shared, etc.)"
+  engagements: Int!
+
+  "Number of likes or reactions on this post"
+  likes: Int!
+
+  "Number of comments or replies on this post"
+  comments: Int!
+
+  "Number of shares, retweets, or reposts of this post"
+  shares: Int!
+
+  "Number of clicks on links included in this post"
+  clicks: Int!
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Pagination
+# ──────────────────────────────────────────────────────────────────────────────
+
+"""
+A paginated list of posts following the Relay connection specification.
+Use pageInfo.endCursor as the 'after' argument to fetch the next page.
+"""
+type PostConnection {
+  "The list of posts on this page"
+  edges: [PostEdge!]!
+
+  "Pagination metadata for fetching additional pages"
+  pageInfo: PageInfo!
+
+  "Total number of posts matching the query filters (across all pages)"
+  totalCount: Int!
+}
+
+"""
+A single post within a paginated list.
+"""
+type PostEdge {
+  "The post"
+  node: Post!
+
+  "Opaque cursor for pagination. Pass this as the 'after' argument to start after this post."
+  cursor: String!
+}
+
+"""
+Pagination metadata for cursor-based pagination.
+"""
+type PageInfo {
+  "Whether there are more results after the last edge in this page"
+  hasNextPage: Boolean!
+
+  "Whether there are results before the first edge in this page"
+  hasPreviousPage: Boolean!
+
+  "Cursor of the first edge in this page. Used for backward pagination."
+  startCursor: String
+
+  "Cursor of the last edge in this page. Pass as 'after' to fetch the next page."
+  endCursor: String
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Queries
+# ──────────────────────────────────────────────────────────────────────────────
+
+type Query {
+  """
+  Retrieve a single profile by its unique identifier.
+  Returns null if the profile does not exist or the authenticated user does not have access.
+  """
+  profile(
+    "The unique identifier of the profile to retrieve"
+    id: ID!
+  ): Profile
+
+  """
+  List all social media profiles connected to the authenticated user's Buffer account.
+  Optionally filter by channel to retrieve only profiles for a specific platform.
+  """
+  profiles(
+    "Filter to only return profiles for a specific social media platform. Omit to return all profiles."
+    channel: Channel
+  ): [Profile!]!
+
+  """
+  Retrieve a single post by its unique identifier.
+  Returns null if the post does not exist or the authenticated user does not have access.
+  """
+  post(
+    "The unique identifier of the post to retrieve"
+    id: ID!
+  ): Post
+
+  """
+  Search and filter posts across all profiles.
+  Useful for finding posts by status, tag, date range, or text content.
+  """
+  posts(
+    "Filter to posts on a specific profile. Omit to search across all profiles."
+    profileId: ID
+    "Filter posts by lifecycle state. Omit to return posts in all states."
+    status: PostStatus
+    "Filter to posts with a specific tag. Pass the tag ID."
+    tagId: ID
+    "Filter to posts scheduled on or after this date. Format: YYYY-MM-DD."
+    scheduledAfter: String
+    "Filter to posts scheduled on or before this date. Format: YYYY-MM-DD."
+    scheduledBefore: String
+    "Search post text for this string. Case-insensitive partial match."
+    search: String
+    "Maximum number of posts to return. Default: 20, Maximum: 100."
+    limit: Int = 20
+    "Cursor for pagination. Use the endCursor from the previous page's PageInfo."
+    after: String
+    "How to order the results. Default: most recently scheduled first."
+    sortBy: PostSortOrder = SCHEDULED_AT_DESC
+  ): PostConnection!
+
+  """
+  List all tags available in the authenticated user's Buffer account.
+  Tags are used to organize posts by campaign, topic, or category.
+  """
+  tags: [Tag!]!
+
+  """
+  List all registered webhook subscriptions for the authenticated user.
+  """
+  webhooks: [Webhook!]!
+
+  """
+  Get comments on a specific published post.
+  Only available for posts with status SENT.
+  Comments are unified across all channels into a single list.
+  """
+  comments(
+    "The ID of the published post to get comments for"
+    postId: ID!
+    "Maximum number of comments to return. Default: 20, Maximum: 100."
+    limit: Int = 20
+    "Cursor for pagination"
+    after: String
+  ): CommentConnection!
+
+  """
+  Get the current rate limit status for the authenticated user.
+  Use this before batch operations to avoid hitting limits.
+  This data is also available in X-RateLimit-* response headers on every API call.
+  """
+  rateLimit: RateLimitInfo!
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Mutations
+# ──────────────────────────────────────────────────────────────────────────────
+
+type Mutation {
+  """
+  Create a single post targeted to one profile.
+  The post will be created as a DRAFT unless scheduledAt is provided,
+  in which case it will be created as QUEUED.
+
+  To publish the same content across multiple channels, use createPosts instead.
+  """
+  createPost(input: CreatePostInput!): CreatePostPayload!
+
+  """
+  Create multiple posts at once, one per target profile.
+  Useful for cross-channel publishing: provide the same text with
+  different profileIds to schedule the same content across channels.
+
+  Each post can have channel-specific text customizations.
+  The text of each post should respect the character limits of its target channel.
+  """
+  createPosts(input: CreatePostsInput!): CreatePostsPayload!
+
+  """
+  Update an existing post. Only posts with status DRAFT or QUEUED can be updated.
+  Published (SENT) and failed (FAILED) posts cannot be modified.
+
+  Provide only the fields you want to change. Omitted fields retain their current values.
+  """
+  updatePost(input: UpdatePostInput!): UpdatePostPayload!
+
+  """
+  Delete a post permanently. This action cannot be undone.
+  Only posts with status DRAFT or QUEUED can be deleted.
+  Published posts (SENT) cannot be deleted through the API.
+  """
+  deletePost(
+    "The unique identifier of the post to delete"
+    id: ID!
+  ): DeletePostPayload!
+
+  """
+  Move a queued post back to draft status, removing its scheduled time.
+  The post will no longer be published automatically.
+  """
+  unqueuePost(
+    "The unique identifier of the queued post to move back to draft"
+    id: ID!
+  ): UpdatePostPayload!
+
+  """
+  Immediately publish a draft or queued post, bypassing the schedule.
+  The post will be sent to the target channel right away.
+  """
+  publishNow(
+    "The unique identifier of the post to publish immediately"
+    id: ID!
+  ): UpdatePostPayload!
+
+  """
+  Add a post to the end of the profile's queue.
+  The post will be published at the next available time slot in the profile's schedule.
+  Only posts with status DRAFT can be added to the queue.
+  """
+  addToQueue(
+    "The unique identifier of the draft post to add to the queue"
+    id: ID!
+  ): UpdatePostPayload!
+
+  """
+  Update the posting schedule for a profile.
+  Replaces the entire schedule with the provided days and times.
+  Existing queued posts are not affected — they retain their scheduled times.
+  """
+  updateSchedule(input: UpdateScheduleInput!): UpdateSchedulePayload!
+
+  """
+  Create a new tag for organizing posts.
+  """
+  createTag(input: CreateTagInput!): CreateTagPayload!
+
+  """
+  Add a tag to an existing post.
+  A post can have multiple tags. Adding a tag that is already on the post has no effect.
+  """
+  tagPost(
+    "The unique identifier of the post to tag"
+    postId: ID!
+    "The unique identifier of the tag to add"
+    tagId: ID!
+  ): UpdatePostPayload!
+
+  """
+  Remove a tag from an existing post.
+  """
+  untagPost(
+    "The unique identifier of the post to untag"
+    postId: ID!
+    "The unique identifier of the tag to remove"
+    tagId: ID!
+  ): UpdatePostPayload!
+
+  """
+  Upload a media file for later attachment to posts.
+  Returns a media ID that can be used in createPost's mediaIds field.
+  Supports images (JPEG, PNG, GIF, WebP up to 10MB) and videos (MP4, MOV up to 512MB).
+  Upload media before creating the post, then reference the media ID.
+  """
+  uploadMedia(
+    "The media file as a multipart upload"
+    file: Upload!
+    "Alt text for accessibility. Strongly recommended for images."
+    altText: String
+  ): UploadMediaPayload!
+
+  """
+  Register a webhook to receive real-time event notifications.
+  Replaces the need to poll the API for state changes.
+  Buffer will send an HTTP POST to your URL whenever a subscribed event occurs.
+  """
+  createWebhook(input: CreateWebhookInput!): CreateWebhookPayload!
+
+  """
+  Delete a webhook subscription. Events will no longer be sent to the registered URL.
+  """
+  deleteWebhook(
+    "The unique identifier of the webhook to delete"
+    id: ID!
+  ): DeleteWebhookPayload!
+
+  """
+  Reply to a comment on a published post.
+  The reply is posted through Buffer to the original social media platform.
+  """
+  replyToComment(
+    "The unique identifier of the comment to reply to"
+    commentId: ID!
+    "The text of your reply"
+    text: String!
+  ): ReplyToCommentPayload!
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Input Types
+# ──────────────────────────────────────────────────────────────────────────────
+
+"""
+Input for creating a single post.
+"""
+input CreatePostInput {
+  "The ID of the profile (social media account) to publish this post to"
+  profileId: ID!
+
+  """
+  The text content of the post.
+  Must respect the character limit of the target channel:
+  X: 280 characters, Bluesky: 300, Threads: 500, Mastodon: 500,
+  Instagram: 2200, Facebook: 63206, LinkedIn: 3000.
+  """
+  text: String!
+
+  """
+  When to publish this post. Format: ISO 8601 datetime (e.g., '2025-03-15T14:30:00Z').
+  If provided, the post will be created with QUEUED status.
+  If omitted, the post will be created as a DRAFT.
+  The time must be in the future.
+  """
+  scheduledAt: DateTime
+
+  "IDs of media files to attach. Upload media first using the media upload endpoint."
+  mediaIds: [ID!]
+
+  "IDs of tags to apply to this post for organization"
+  tagIds: [ID!]
+}
+
+"""
+Input for creating multiple posts at once (cross-channel publishing).
+"""
+input CreatePostsInput {
+  """
+  One entry per post to create. Each entry targets a different profile.
+  To post the same text to three channels, include three entries with the
+  same text but different profileIds.
+  """
+  posts: [CreatePostInput!]!
+}
+
+"""
+Input for updating an existing post.
+Only include fields you want to change. Omitted fields keep their current values.
+"""
+input UpdatePostInput {
+  "The unique identifier of the post to update"
+  id: ID!
+
+  "New text content for the post. Must respect the channel's character limit."
+  text: String
+
+  """
+  New scheduled time. Format: ISO 8601 datetime.
+  Setting this on a DRAFT post will change its status to QUEUED.
+  The time must be in the future.
+  """
+  scheduledAt: DateTime
+
+  "New set of media IDs. Replaces all existing media attachments."
+  mediaIds: [ID!]
+
+  "New set of tag IDs. Replaces all existing tags on the post."
+  tagIds: [ID!]
+}
+
+"""
+Input for updating a profile's posting schedule.
+"""
+input UpdateScheduleInput {
+  "The ID of the profile whose schedule is being updated"
+  profileId: ID!
+
+  """
+  The new schedule entries. Replaces the entire current schedule.
+  Each entry specifies days and times for automatic posting.
+  """
+  schedules: [ScheduleInput!]!
+}
+
+"""
+A single schedule entry: which days and times to auto-publish.
+"""
+input ScheduleInput {
+  """
+  Days of the week for this schedule.
+  Use lowercase English day names: 'monday', 'tuesday', etc.
+  """
+  days: [String!]!
+
+  """
+  Times of day to publish, in 24-hour format in the profile's timezone.
+  Each time creates one publishing slot per active day.
+  Example: ['09:00', '12:30', '17:00'] creates three slots per day.
+  """
+  times: [String!]!
+}
+
+"""
+Input for creating a new tag.
+"""
+input CreateTagInput {
+  "The display name for the tag (e.g., 'Product Launch', 'Weekly Tips')"
+  name: String!
+
+  "A hex color code for the tag (e.g., '#FF6B6B'). A color will be assigned automatically if omitted."
+  color: String
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Mutation Payloads
+# ──────────────────────────────────────────────────────────────────────────────
+
+"""
+Result of creating a single post.
+Check the success field to determine if the operation succeeded.
+"""
+type CreatePostPayload {
+  "Whether the post was created successfully"
+  success: Boolean!
+
+  "The newly created post. Null if success is false."
+  post: Post
+
+  "Error message if the creation failed. Null if success is true."
+  error: String
+}
+
+"""
+Result of creating multiple posts at once.
+Each post is created independently — some may succeed while others fail.
+"""
+type CreatePostsPayload {
+  "Whether all posts were created successfully"
+  success: Boolean!
+
+  "The results for each post, in the same order as the input"
+  results: [CreatePostPayload!]!
+}
+
+"""
+Result of updating a post.
+"""
+type UpdatePostPayload {
+  "Whether the update was applied successfully"
+  success: Boolean!
+
+  "The updated post with current field values. Null if success is false."
+  post: Post
+
+  "Error message if the update failed. Null if success is true."
+  error: String
+}
+
+"""
+Result of deleting a post.
+"""
+type DeletePostPayload {
+  "Whether the post was deleted successfully"
+  success: Boolean!
+
+  "The ID of the deleted post"
+  deletedId: ID
+
+  "Error message if the deletion failed. Null if success is true."
+  error: String
+}
+
+"""
+Result of updating a profile's schedule.
+"""
+type UpdateSchedulePayload {
+  "Whether the schedule was updated successfully"
+  success: Boolean!
+
+  "The profile with its updated schedules. Null if success is false."
+  profile: Profile
+
+  "Error message if the update failed. Null if success is true."
+  error: String
+}
+
+"""
+Result of creating a tag.
+"""
+type CreateTagPayload {
+  "Whether the tag was created successfully"
+  success: Boolean!
+
+  "The newly created tag. Null if success is false."
+  tag: Tag
+
+  "Error message if the creation failed. Null if success is true."
+  error: String
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Webhooks (Event-Driven — Replaces Polling)
+#
+# The old Buffer API required polling to detect state changes.
+# At 60 req/min, this was unsustainable for real integrations.
+# Webhooks push events to your endpoint in real time.
+# ──────────────────────────────────────────────────────────────────────────────
+
+"""
+An event type that can trigger a webhook notification.
+Subscribe to specific events to receive real-time updates
+instead of polling the API.
+"""
+enum WebhookEvent {
+  "A queued post has been successfully published to its channel"
+  POST_SENT
+
+  "A queued post failed to publish. The webhook payload includes the error message."
+  POST_FAILED
+
+  "A new comment or reply was received on a published post"
+  COMMENT_RECEIVED
+
+  "A profile's connection status changed (e.g., token expired, reauthorization needed)"
+  PROFILE_CONNECTION_CHANGED
+
+  "A post was created or updated via the API or the Buffer UI"
+  POST_UPDATED
+}
+
+"""
+A registered webhook endpoint that receives event notifications.
+
+When a subscribed event occurs, Buffer sends an HTTP POST request
+to the registered URL with a JSON payload containing the event type,
+timestamp, and relevant resource data.
+
+Webhook payloads include an X-Buffer-Signature header for verification.
+"""
+type Webhook {
+  "Unique identifier for this webhook subscription"
+  id: ID!
+
+  "The HTTPS URL that will receive webhook POST requests"
+  url: String!
+
+  "The event types this webhook is subscribed to"
+  events: [WebhookEvent!]!
+
+  "Whether this webhook is currently active and receiving events"
+  enabled: Boolean!
+
+  "A secret used to sign webhook payloads for verification via X-Buffer-Signature header"
+  secret: String!
+
+  "When this webhook was created"
+  createdAt: DateTime!
+}
+
+"""
+Input for creating a webhook subscription.
+"""
+input CreateWebhookInput {
+  "The HTTPS URL to receive webhook POST requests. Must use HTTPS."
+  url: String!
+
+  "The event types to subscribe to. At least one event is required."
+  events: [WebhookEvent!]!
+}
+
+"""
+Result of creating a webhook.
+"""
+type CreateWebhookPayload {
+  "Whether the webhook was created successfully"
+  success: Boolean!
+
+  "The created webhook, including the generated secret for payload verification. Null if success is false."
+  webhook: Webhook
+
+  "Error message if creation failed. Null if success is true."
+  error: String
+}
+
+"""
+Result of deleting a webhook.
+"""
+type DeleteWebhookPayload {
+  "Whether the webhook was deleted successfully"
+  success: Boolean!
+
+  "The ID of the deleted webhook"
+  deletedId: ID
+
+  "Error message if deletion failed. Null if success is true."
+  error: String
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Media Upload
+#
+# The old API had no dedicated media upload flow.
+# This two-step pattern (upload first, then attach to post)
+# keeps post creation fast and lets you reuse media across posts.
+# ──────────────────────────────────────────────────────────────────────────────
+
+"""
+Result of uploading a media file.
+Upload media first, then reference the returned ID when creating a post.
+This two-step pattern keeps post creation fast and allows
+reusing the same media across multiple posts.
+"""
+type UploadMediaPayload {
+  "Whether the upload was successful"
+  success: Boolean!
+
+  "The uploaded media item with its ID. Use this ID in createPost's mediaIds field. Null if success is false."
+  media: Media
+
+  "Error message if upload failed (e.g., 'File exceeds 10MB limit', 'Unsupported format for Instagram'). Null if success is true."
+  error: String
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Comments & Engagement
+#
+# Buffer's Community feature manages comments across channels,
+# but the old API had no endpoints for this. Developers building
+# dashboards couldn't access engagement data programmatically.
+# ──────────────────────────────────────────────────────────────────────────────
+
+"""
+A comment or reply on a published post.
+Comments are pulled from the social media platform and unified
+in Buffer's API regardless of which channel they originated from.
+"""
+type Comment {
+  "Unique identifier for this comment"
+  id: ID!
+
+  "The text content of the comment"
+  text: String!
+
+  "The name of the person who left the comment"
+  authorName: String!
+
+  "URL to the commenter's profile picture, if available"
+  authorAvatarUrl: String
+
+  "When this comment was posted on the social media platform"
+  createdAt: DateTime!
+
+  "Whether this comment has been replied to through Buffer"
+  isReplied: Boolean!
+
+  "The post this comment belongs to"
+  post: Post!
+}
+
+"""
+A paginated list of comments.
+"""
+type CommentConnection {
+  "The list of comments on this page"
+  edges: [CommentEdge!]!
+
+  "Pagination metadata"
+  pageInfo: PageInfo!
+
+  "Total number of comments matching the query"
+  totalCount: Int!
+}
+
+"""
+A single comment within a paginated list.
+"""
+type CommentEdge {
+  "The comment"
+  node: Comment!
+
+  "Opaque cursor for pagination"
+  cursor: String!
+}
+
+"""
+Result of replying to a comment.
+"""
+type ReplyToCommentPayload {
+  "Whether the reply was posted successfully"
+  success: Boolean!
+
+  "Error message if the reply failed (e.g., 'Comment no longer exists on platform'). Null if success is true."
+  error: String
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Rate Limit Transparency
+#
+# The old API returned a 429 with no context. Modern APIs
+# tell you where you stand so you can throttle intelligently.
+# ──────────────────────────────────────────────────────────────────────────────
+
+"""
+Current rate limit status for the authenticated user.
+
+Query this to understand your remaining API budget before making
+batch operations. This information is also returned in HTTP headers
+on every response:
+  X-RateLimit-Limit: requests allowed per window
+  X-RateLimit-Remaining: requests remaining in current window
+  X-RateLimit-Reset: ISO 8601 timestamp when the window resets
+"""
+type RateLimitInfo {
+  "Maximum number of requests allowed per rate limit window"
+  limit: Int!
+
+  "Number of requests remaining in the current window"
+  remaining: Int!
+
+  "When the current rate limit window resets (ISO 8601 datetime)"
+  resetsAt: DateTime!
+
+  "Length of the rate limit window in seconds"
+  windowSeconds: Int!
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Custom Scalars
+# ──────────────────────────────────────────────────────────────────────────────
+
+"""
+An ISO 8601 datetime string (e.g., '2025-03-15T14:30:00Z').
+All datetimes are in UTC unless otherwise specified.
+"""
+scalar DateTime
+
+"""
+A file upload via multipart form data.
+Used by the uploadMedia mutation.
+"""
+scalar Upload
