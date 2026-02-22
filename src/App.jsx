@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 // ─── DOCS CONTENT ────────────────────────────────────────────────────────────
 const DOCS = {
@@ -259,7 +260,7 @@ if (!result.data.createPost.success) {
       },
       {
         heading: "Rate Limited (429)",
-        body: "Read X-RateLimit-Remaining on every response and throttle before you hit zero. The Retry-After header tells you when to resume. Use webhooks instead of polling.",
+        body: "Read X-RateLimit-Remaining on every response and throttle before you hit zero. The Retry-After header tells you when to resume. Use {{link:webhooks:workflows}} instead of polling.",
         code: `HTTP/1.1 429 Too Many Requests
 X-RateLimit-Limit: 300
 X-RateLimit-Remaining: 0
@@ -295,7 +296,9 @@ Retry-After: 47
       {
         heading: "Content Calendar: Schedule a Week",
         body: "Get your profiles and their schedules, batch-create posts matched to time slots, then verify the queue. A typical three-step pattern for small businesses.",
-        code: `# Step 1: Get profiles & schedules
+        variants: [
+          {
+            code: `# Step 1: Get profiles & schedules
 query { profiles { id channel schedules { days times } } }
 
 # Step 2: Batch create posts
@@ -320,12 +323,144 @@ query {
     totalCount
   }
 }`,
-        lang: "graphql",
+            lang: "graphql",
+          },
+          {
+            code: `const headers = {
+  "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+  "Content-Type": "application/json",
+};
+
+// Step 1: Get profiles & schedules
+const profilesRes = await fetch("https://api.buffer.com/graphql", {
+  method: "POST", headers,
+  body: JSON.stringify({
+    query: \`{ profiles { id channel schedules { days times } } }\`,
+  }),
+});
+const { data: { profiles } } = await profilesRes.json();
+
+// Step 2: Batch create posts
+const createRes = await fetch("https://api.buffer.com/graphql", {
+  method: "POST", headers,
+  body: JSON.stringify({
+    query: \`mutation($input: CreatePostsInput!) {
+      createPosts(input: $input) {
+        success
+        results { success post { id } error }
+      }
+    }\`,
+    variables: {
+      input: {
+        posts: [
+          {
+            profileId: "prof_ig_123",
+            text: "Monday motivation 🌱 #smallbusiness",
+            scheduledAt: "2025-04-07T09:00:00Z",
+            tagIds: ["tag_motivation"],
+          },
+          {
+            profileId: "prof_ig_123",
+            text: "Behind the scenes ✨ #bts",
+            scheduledAt: "2025-04-09T09:00:00Z",
+          },
+        ],
+      },
+    },
+  }),
+});
+const { data: { createPosts } } = await createRes.json();
+
+// Step 3: Verify queue
+const queueRes = await fetch("https://api.buffer.com/graphql", {
+  method: "POST", headers,
+  body: JSON.stringify({
+    query: \`{
+      posts(status: QUEUED, scheduledAfter: "2025-04-07"
+            scheduledBefore: "2025-04-13"
+            sortBy: SCHEDULED_AT_ASC) {
+        edges { node { text scheduledAt profile { channel } } }
+        totalCount
+      }
+    }\`,
+  }),
+});
+const { data: { posts } } = await queueRes.json();
+console.log(\`\${posts.totalCount} posts queued\`, posts.edges);`,
+            lang: "javascript",
+          },
+          {
+            code: `import requests
+
+headers = {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+}
+
+# Step 1: Get profiles & schedules
+profiles = requests.post(
+    "https://api.buffer.com/graphql",
+    headers=headers,
+    json={"query": "{ profiles { id channel schedules { days times } } }"},
+).json()["data"]["profiles"]
+
+# Step 2: Batch create posts
+result = requests.post(
+    "https://api.buffer.com/graphql",
+    headers=headers,
+    json={
+        "query": """mutation($input: CreatePostsInput!) {
+            createPosts(input: $input) {
+                success
+                results { success post { id } error }
+            }
+        }""",
+        "variables": {
+            "input": {
+                "posts": [
+                    {
+                        "profileId": "prof_ig_123",
+                        "text": "Monday motivation 🌱 #smallbusiness",
+                        "scheduledAt": "2025-04-07T09:00:00Z",
+                        "tagIds": ["tag_motivation"],
+                    },
+                    {
+                        "profileId": "prof_ig_123",
+                        "text": "Behind the scenes ✨ #bts",
+                        "scheduledAt": "2025-04-09T09:00:00Z",
+                    },
+                ]
+            }
+        },
+    },
+).json()
+
+# Step 3: Verify queue
+queued = requests.post(
+    "https://api.buffer.com/graphql",
+    headers=headers,
+    json={
+        "query": """{
+            posts(status: QUEUED, scheduledAfter: "2025-04-07"
+                  scheduledBefore: "2025-04-13"
+                  sortBy: SCHEDULED_AT_ASC) {
+                edges { node { text scheduledAt profile { channel } } }
+                totalCount
+            }
+        }"""
+    },
+).json()["data"]["posts"]
+print(f"{queued['totalCount']} posts queued", queued["edges"])`,
+            lang: "python",
+          },
+        ],
       },
       {
         heading: "Analytics Dashboard",
         body: "Pull profile-level metrics and top-performing posts. Compare engagement rates across channels to see where your audience is most active.",
-        code: `# Profile-level metrics
+        variants: [
+          {
+            code: `# Profile-level metrics
 query {
   profiles {
     channel username
@@ -346,12 +481,115 @@ query {
     }}
   }
 }`,
-        lang: "graphql",
+            lang: "graphql",
+          },
+          {
+            code: `const headers = {
+  "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+  "Content-Type": "application/json",
+};
+
+// Profile-level metrics
+const profilesRes = await fetch("https://api.buffer.com/graphql", {
+  method: "POST", headers,
+  body: JSON.stringify({
+    query: \`{
+      profiles {
+        channel username
+        analytics(period: WEEK) {
+          followers followersChange
+          impressions totalEngagement engagementRate
+        }
+      }
+    }\`,
+  }),
+});
+const { data: { profiles } } = await profilesRes.json();
+
+profiles.forEach(p =>
+  console.log(\`\${p.channel} @\${p.username}: \${p.analytics.engagementRate}% engagement\`)
+);
+
+// Top posts by engagement
+const postsRes = await fetch("https://api.buffer.com/graphql", {
+  method: "POST", headers,
+  body: JSON.stringify({
+    query: \`{
+      posts(status: SENT, sortBy: ENGAGEMENT_DESC, limit: 5) {
+        edges { node {
+          text
+          profile { channel }
+          analytics { impressions likes comments shares clicks }
+        }}
+      }
+    }\`,
+  }),
+});
+const { data: { posts } } = await postsRes.json();
+
+posts.edges.forEach(({ node }) =>
+  console.log(\`[\${node.profile.channel}] \${node.analytics.impressions} impressions — \${node.text.slice(0, 50)}\`)
+);`,
+            lang: "javascript",
+          },
+          {
+            code: `import requests
+
+headers = {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+}
+
+# Profile-level metrics
+profiles = requests.post(
+    "https://api.buffer.com/graphql",
+    headers=headers,
+    json={
+        "query": """{
+            profiles {
+                channel username
+                analytics(period: WEEK) {
+                    followers followersChange
+                    impressions totalEngagement engagementRate
+                }
+            }
+        }"""
+    },
+).json()["data"]["profiles"]
+
+for p in profiles:
+    print(f"{p['channel']} @{p['username']}: {p['analytics']['engagementRate']}% engagement")
+
+# Top posts by engagement
+posts = requests.post(
+    "https://api.buffer.com/graphql",
+    headers=headers,
+    json={
+        "query": """{
+            posts(status: SENT, sortBy: ENGAGEMENT_DESC, limit: 5) {
+                edges { node {
+                    text
+                    profile { channel }
+                    analytics { impressions likes comments shares clicks }
+                }}
+            }
+        }"""
+    },
+).json()["data"]["posts"]
+
+for edge in posts["edges"]:
+    node = edge["node"]
+    print(f"[{node['profile']['channel']}] {node['analytics']['impressions']} impressions — {node['text'][:50]}")`,
+            lang: "python",
+          },
+        ],
       },
       {
         heading: "RSS-to-Buffer Pipeline",
         body: "Monitor a blog feed, generate platform-appropriate text, create drafts via the API. A human reviews and approves in Buffer's UI. Omit scheduledAt to keep posts as drafts.",
-        code: `mutation {
+        variants: [
+          {
+            code: `mutation {
   createPosts(input: { posts: [
     { profileId: "prof_x_456"
       text: "New on the blog: Content Calendar Guide → myblog.com/cal" }
@@ -363,7 +601,85 @@ query {
   }
 }
 # Both created as DRAFT (no scheduledAt)`,
-        lang: "graphql",
+            lang: "graphql",
+          },
+          {
+            code: `const response = await fetch("https://api.buffer.com/graphql", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    query: \`mutation($input: CreatePostsInput!) {
+      createPosts(input: $input) {
+        success
+        results { success post { id status } error }
+      }
+    }\`,
+    variables: {
+      input: {
+        posts: [
+          {
+            profileId: "prof_x_456",
+            text: "New on the blog: Content Calendar Guide → myblog.com/cal",
+          },
+          {
+            profileId: "prof_li_789",
+            text: "Just published a guide on content calendars for small businesses.\\n\\nCovers the 3 biggest mistakes and how to avoid them.\\n\\nRead: myblog.com/cal",
+          },
+        ],
+      },
+    },
+  }),
+});
+
+const { data } = await response.json();
+// Both created as DRAFT (no scheduledAt)
+data.createPosts.results.forEach(r =>
+  console.log(r.post.id, r.post.status) // → "DRAFT"
+);`,
+            lang: "javascript",
+          },
+          {
+            code: `import requests
+
+response = requests.post(
+    "https://api.buffer.com/graphql",
+    headers={
+        "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+        "Content-Type": "application/json",
+    },
+    json={
+        "query": """mutation($input: CreatePostsInput!) {
+            createPosts(input: $input) {
+                success
+                results { success post { id status } error }
+            }
+        }""",
+        "variables": {
+            "input": {
+                "posts": [
+                    {
+                        "profileId": "prof_x_456",
+                        "text": "New on the blog: Content Calendar Guide → myblog.com/cal",
+                    },
+                    {
+                        "profileId": "prof_li_789",
+                        "text": "Just published a guide on content calendars for small businesses.\\n\\nCovers the 3 biggest mistakes and how to avoid them.\\n\\nRead: myblog.com/cal",
+                    },
+                ]
+            }
+        },
+    },
+)
+
+# Both created as DRAFT (no scheduledAt)
+for r in response.json()["data"]["createPosts"]["results"]:
+    print(r["post"]["id"], r["post"]["status"])  # → "DRAFT"`,
+            lang: "python",
+          },
+        ],
       },
     ],
   },
@@ -493,9 +809,9 @@ function CodeBlock({ code, lang, variants }) {
                 <button key={v.lang} onClick={() => setActiveLang(i)} style={{
                   background: "none", border: "none", cursor: "pointer",
                   fontSize: 11, fontFamily: "monospace", textTransform: "uppercase", letterSpacing: 1,
-                  color: i === activeLang ? colors.accent : "#6b7280",
+                  color: i === activeLang ? "#a5b4fc" : "#6b7280",
                   padding: "2px 10px",
-                  borderBottom: i === activeLang ? `2px solid ${colors.accent}` : "2px solid transparent",
+                  borderBottom: i === activeLang ? "2px solid #a5b4fc" : "2px solid transparent",
                   transition: "all 0.2s",
                 }}>
                   {v.lang}
@@ -503,10 +819,10 @@ function CodeBlock({ code, lang, variants }) {
               ))}
             </div>
           ) : (
-            <span style={{ fontSize: 11, color: colors.accent, fontFamily: "monospace", textTransform: "uppercase", letterSpacing: 1 }}>{lang}</span>
+            <span style={{ fontSize: 11, color: "#a5b4fc", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: 1 }}>{lang}</span>
           )}
           <button onClick={handleCopy} style={{
-            background: "none", border: "none", color: colors.accent, cursor: "pointer", fontSize: 11,
+            background: "none", border: "none", color: "#a5b4fc", cursor: "pointer", fontSize: 11,
             padding: "2px 8px", borderRadius: 4, transition: "color 0.2s",
           }}>
             {copied ? "✓ Copied" : "Copy"}
@@ -659,7 +975,7 @@ function LandingPage({ onNavigate }) {
   );
 }
 
-function DocsPage({ docKey }) {
+function DocsPage({ docKey, onNavigate }) {
   const doc = DOCS[docKey];
   if (!doc) return null;
   return (
@@ -677,7 +993,15 @@ function DocsPage({ docKey }) {
           )}
           {section.body && (
             <p style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.7, margin: "0 0 4px" }}>
-              {section.body}
+              {typeof section.body === "string" && section.body.includes("{{link:")
+                ? section.body.split(/(\{\{link:[^}]+\}\})/).map((part, j) => {
+                    const match = part.match(/^\{\{link:(.+?):(.+?)\}\}$/);
+                    if (match) {
+                      return <a key={j} href="#" onClick={(e) => { e.preventDefault(); onNavigate(match[2]); }} style={{ color: colors.accent, textDecoration: "none" }}>{match[1]}</a>;
+                    }
+                    return part;
+                  })
+                : section.body}
             </p>
           )}
           {section.variants && <CodeBlock variants={section.variants} />}
@@ -701,7 +1025,173 @@ const SCHEMA_TYPES = {
     { name: "rateLimit", returns: "RateLimitInfo!", desc: "Get current rate limit status" },
   ],
   mutations: [
-    { name: "createPost(input)", desc: "Create a post for one profile. Omit scheduledAt → DRAFT, include it → QUEUED." },
+    {
+      name: "createPost(input)",
+      desc: "Create a post for one profile. Omit scheduledAt → DRAFT, include it → QUEUED.",
+      schema: `"""
+Create a single post targeted to one profile.
+The post will be created as a DRAFT unless scheduledAt is provided,
+in which case it will be created as QUEUED.
+
+To publish the same content across multiple channels, use createPosts instead.
+"""
+createPost(input: CreatePostInput!): CreatePostPayload!
+
+input CreatePostInput {
+  "The ID of the profile (social media account) to publish this post to"
+  profileId: ID!
+
+  """
+  The text content of the post.
+  Must respect the character limit of the target channel:
+  X: 280 characters, Bluesky: 300, Threads: 500, Mastodon: 500,
+  Instagram: 2200, Facebook: 63206, LinkedIn: 3000.
+  """
+  text: String!
+
+  """
+  When to publish this post. Format: ISO 8601 datetime.
+  If provided, the post will be created with QUEUED status.
+  If omitted, the post will be created as a DRAFT.
+  The time must be in the future.
+  """
+  scheduledAt: DateTime
+
+  "IDs of media files to attach. Upload media first using the uploadMedia mutation."
+  mediaIds: [ID!]
+
+  "IDs of tags to apply to this post for organization"
+  tagIds: [ID!]
+}
+
+type CreatePostPayload {
+  "Whether the post was created successfully"
+  success: Boolean!
+
+  "The newly created post. Null if success is false."
+  post: Post
+
+  "Error message if the creation failed. Null if success is true."
+  error: String
+}`,
+      narrative: "Create a single post targeted to one profile. If you include scheduledAt, the post is created as QUEUED and will be published at that time. Omit it and the post starts as a DRAFT. To publish the same content across multiple channels, use createPosts (plural) instead. The text must respect the character limit of the target channel — for example, X allows 280 characters while LinkedIn allows 3,000. Media must be uploaded first via uploadMedia; pass the returned IDs in mediaIds.",
+      params: [
+        { name: "profileId", type: "ID!", required: true, desc: "The ID of the profile (social media account) to publish this post to." },
+        { name: "text", type: "String!", required: true, desc: "The text content of the post. Must respect the target channel's character limit (X: 280, Bluesky: 300, Threads: 500, Mastodon: 500, Instagram: 2200, Facebook: 63206, LinkedIn: 3000)." },
+        { name: "scheduledAt", type: "DateTime", required: false, desc: "When to publish. ISO 8601 datetime (e.g., '2025-03-15T14:30:00Z'). If provided → QUEUED. If omitted → DRAFT. Must be in the future." },
+        { name: "mediaIds", type: "[ID!]", required: false, desc: "IDs of media files to attach. Upload media first using the uploadMedia mutation." },
+        { name: "tagIds", type: "[ID!]", required: false, desc: "IDs of tags to apply to this post for campaign tracking and organization." },
+      ],
+      variants: [
+        {
+          lang: "graphql",
+          code: `mutation($input: CreatePostInput!) {
+  createPost(input: $input) {
+    success
+    post {
+      id
+      status
+      scheduledAt
+      profile { channel username }
+    }
+    error
+  }
+}
+
+# Variables:
+# {
+#   "input": {
+#     "profileId": "prof_ig_001",
+#     "text": "Excited to share what we've been working on!",
+#     "scheduledAt": "2025-04-01T14:30:00Z"
+#   }
+# }`,
+        },
+        {
+          lang: "javascript",
+          code: `const response = await fetch("https://api.buffer.com/graphql", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    query: \`mutation($input: CreatePostInput!) {
+      createPost(input: $input) {
+        success
+        post { id status scheduledAt profile { channel username } }
+        error
+      }
+    }\`,
+    variables: {
+      input: {
+        profileId: "prof_ig_001",
+        text: "Excited to share what we've been working on!",
+        scheduledAt: "2025-04-01T14:30:00Z",
+      },
+    },
+  }),
+});
+
+const { data } = await response.json();
+if (data.createPost.success) {
+  console.log("Created:", data.createPost.post.id, data.createPost.post.status);
+} else {
+  console.error("Failed:", data.createPost.error);
+}`,
+        },
+        {
+          lang: "python",
+          code: `import requests
+
+response = requests.post(
+    "https://api.buffer.com/graphql",
+    headers={
+        "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+        "Content-Type": "application/json",
+    },
+    json={
+        "query": """mutation($input: CreatePostInput!) {
+            createPost(input: $input) {
+                success
+                post { id status scheduledAt profile { channel username } }
+                error
+            }
+        }""",
+        "variables": {
+            "input": {
+                "profileId": "prof_ig_001",
+                "text": "Excited to share what we've been working on!",
+                "scheduledAt": "2025-04-01T14:30:00Z"
+            }
+        },
+    },
+)
+
+result = response.json()["data"]["createPost"]
+if result["success"]:
+    print("Created:", result["post"]["id"], result["post"]["status"])
+else:
+    print("Failed:", result["error"])`,
+        },
+        {
+          lang: "curl",
+          code: `curl -X POST https://api.buffer.com/graphql \\
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "mutation($input: CreatePostInput!) { createPost(input: $input) { success post { id status scheduledAt } error } }",
+    "variables": {
+      "input": {
+        "profileId": "prof_ig_001",
+        "text": "Excited to share what we have been working on!",
+        "scheduledAt": "2025-04-01T14:30:00Z"
+      }
+    }
+  }'`,
+        },
+      ],
+    },
     { name: "createPosts(input)", desc: "Batch create across multiple profiles in one call." },
     { name: "updatePost(input)", desc: "Edit a DRAFT or QUEUED post. SENT posts cannot be modified." },
     { name: "deletePost(id)", desc: "Permanently delete a DRAFT or QUEUED post." },
@@ -739,6 +1229,52 @@ const SCHEMA_TYPES = {
   ],
 };
 
+function OperationDetail({ op, accentColor }) {
+  return (
+    <div style={{
+      borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface,
+      overflow: "hidden",
+    }}>
+      <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${colors.border}` }}>
+        <code style={{ fontSize: 15, color: accentColor, fontWeight: 600 }}>{op.name}</code>
+        {op.returns && <code style={{ fontSize: 11, color: colors.cyan, marginLeft: 12 }}>{op.returns}</code>}
+      </div>
+
+      <div style={{ padding: "0 18px 18px" }}>
+        <CodeBlock code={op.schema} lang="graphql" />
+
+        <p style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.7, margin: "16px 0" }}>
+          {op.narrative}
+        </p>
+
+        <h4 style={{ fontSize: 12, fontWeight: 600, color: colors.textDim, textTransform: "uppercase", letterSpacing: 1, margin: "0 0 10px" }}>
+          Parameters
+        </h4>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+          {op.params.map(p => (
+            <div key={p.name} style={{
+              display: "flex", gap: 10, alignItems: "baseline",
+              padding: "8px 12px", borderRadius: 6, background: colors.bg,
+            }}>
+              <code style={{ fontSize: 13, color: colors.text, fontWeight: 600, minWidth: 110 }}>{p.name}</code>
+              <code style={{ fontSize: 11, color: colors.cyan, minWidth: 70 }}>{p.type}</code>
+              <span style={{
+                fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5,
+                color: p.required ? colors.amber : colors.textDim,
+              }}>
+                {p.required ? "required" : "optional"}
+              </span>
+              <span style={{ fontSize: 12, color: colors.textMuted, flex: 1 }}>{p.desc}</span>
+            </div>
+          ))}
+        </div>
+
+        <CodeBlock variants={op.variants} />
+      </div>
+    </div>
+  );
+}
+
 function APIReferencePage() {
   const [section, setSection] = useState("reads");
   return (
@@ -749,6 +1285,21 @@ function APIReferencePage() {
       <p style={{ fontSize: 15, color: colors.textMuted, margin: "0 0 24px" }}>
         {SCHEMA_TYPES.queries.length} queries, {SCHEMA_TYPES.mutations.length} mutations, {SCHEMA_TYPES.types.length} types, {SCHEMA_TYPES.enums.length} enums.
       </p>
+
+      <div style={{
+        border: `1px solid ${colors.border}`, borderRadius: 10, padding: "18px 22px",
+        background: colors.surface, marginBottom: 28,
+        borderLeft: `3px solid ${colors.accent}`,
+      }}>
+        <h3 style={{ fontSize: 14, fontWeight: 600, color: colors.text, margin: "0 0 6px" }}>
+          Schema is the source of truth
+        </h3>
+        <p style={{ fontSize: 13, color: colors.textMuted, lineHeight: 1.6, margin: 0 }}>
+          The descriptions, parameter names, types, and defaults you see below come directly from the GraphQL schema annotations.
+          Each operation shows its raw schema definition alongside the rendered reference. When the schema evolves, this reference updates automatically.
+        </p>
+      </div>
+
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
         {[
           { key: "reads", label: "Read Operations" },
@@ -761,7 +1312,6 @@ function APIReferencePage() {
             background: section === t.key ? colors.accentSoft : "transparent",
             color: section === t.key ? colors.accent : colors.textMuted,
             cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: 500,
-            
           }}>
             {t.label}
           </button>
@@ -770,7 +1320,9 @@ function APIReferencePage() {
 
       {section === "reads" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {SCHEMA_TYPES.queries.map(q => (
+          {SCHEMA_TYPES.queries.map(q => q.schema ? (
+            <OperationDetail key={q.name} op={q} accentColor={colors.accent} />
+          ) : (
             <div key={q.name} style={{
               padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
             }}>
@@ -786,7 +1338,9 @@ function APIReferencePage() {
 
       {section === "writes" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {SCHEMA_TYPES.mutations.map(m => (
+          {SCHEMA_TYPES.mutations.map(m => m.schema ? (
+            <OperationDetail key={m.name} op={m} accentColor={colors.amber} />
+          ) : (
             <div key={m.name} style={{
               padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
             }}>
@@ -916,7 +1470,7 @@ export default function App() {
       case "landing": return <LandingPage onNavigate={setPage} />;
       case "reference": return <APIReferencePage />;
       case "mcp": return <MCPServerPage />;
-      default: return <DocsPage docKey={page} />;
+      default: return <DocsPage docKey={page} onNavigate={setPage} />;
     }
   };
 
@@ -985,6 +1539,7 @@ export default function App() {
         </div>
         {renderPage()}
       </main>
+      <Analytics />
     </div>
   );
 }
