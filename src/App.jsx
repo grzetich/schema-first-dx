@@ -1015,14 +1015,159 @@ function DocsPage({ docKey, onNavigate }) {
 // ─── SCHEMA REFERENCE DATA ──────────────────────────────────────────────────
 const SCHEMA_TYPES = {
   queries: [
-    { name: "profile(id: ID!)", returns: "Profile", desc: "Get a single profile by its unique identifier" },
-    { name: "profiles(channel: Channel)", returns: "[Profile!]!", desc: "List all connected social media profiles" },
-    { name: "post(id: ID!)", returns: "Post", desc: "Get a single post by its unique identifier" },
-    { name: "posts(...filters)", returns: "PostConnection!", desc: "Search and filter posts across all profiles" },
-    { name: "tags", returns: "[Tag!]!", desc: "List all tags for organizing posts" },
-    { name: "webhooks", returns: "[Webhook!]!", desc: "List all registered webhook subscriptions" },
-    { name: "comments(postId: ID!)", returns: "CommentConnection!", desc: "Get comments on a published post" },
-    { name: "rateLimit", returns: "RateLimitInfo!", desc: "Get current rate limit status" },
+    {
+      name: "posts(...filters)",
+      returns: "PostConnection!",
+      desc: "Search and filter posts across all profiles",
+      schema: `"""
+Search and filter posts across all profiles.
+Useful for finding posts by status, tag, date range, or text content.
+"""
+posts(
+  "Filter to posts on a specific profile. Omit to search across all profiles."
+  profileId: ID
+  "Filter posts by lifecycle state. Omit to return posts in all states."
+  status: PostStatus
+  "Filter to posts with a specific tag. Pass the tag ID."
+  tagId: ID
+  "Filter to posts scheduled on or after this date. Format: YYYY-MM-DD."
+  scheduledAfter: String
+  "Filter to posts scheduled on or before this date. Format: YYYY-MM-DD."
+  scheduledBefore: String
+  "Search post text for this string. Case-insensitive partial match."
+  search: String
+  "Maximum number of posts to return. Default: 20, Maximum: 100."
+  limit: Int = 20
+  "Cursor for pagination. Use the endCursor from the previous page's PageInfo."
+  after: String
+  "How to order the results. Default: most recently scheduled first."
+  sortBy: PostSortOrder = SCHEDULED_AT_DESC
+): PostConnection!`,
+      narrative: "Search and filter posts across all profiles. You can narrow results by profile, lifecycle status, tag, date range, or text content. Results are paginated using cursor-based pagination — pass the endCursor from the previous page as the after argument to fetch the next page. Use sortBy to control ordering: by schedule date, creation date, or engagement.",
+      params: [
+        { name: "profileId", type: "ID", required: false, desc: "Filter to posts on a specific profile. Omit to search across all profiles." },
+        { name: "status", type: "PostStatus", required: false, desc: "Filter by lifecycle state (DRAFT, QUEUED, SENT, FAILED). Omit to return all." },
+        { name: "tagId", type: "ID", required: false, desc: "Filter to posts with a specific tag." },
+        { name: "scheduledAfter", type: "String", required: false, desc: "Posts scheduled on or after this date. Format: YYYY-MM-DD." },
+        { name: "scheduledBefore", type: "String", required: false, desc: "Posts scheduled on or before this date. Format: YYYY-MM-DD." },
+        { name: "search", type: "String", required: false, desc: "Search post text. Case-insensitive partial match." },
+        { name: "limit", type: "Int", required: false, desc: "Maximum posts to return. Default: 20, Maximum: 100." },
+        { name: "after", type: "String", required: false, desc: "Cursor for pagination. Use endCursor from the previous page." },
+        { name: "sortBy", type: "PostSortOrder", required: false, desc: "How to order results. Default: SCHEDULED_AT_DESC." },
+      ],
+      variants: [
+        {
+          lang: "graphql",
+          code: `{
+  posts(
+    status: SENT
+    scheduledAfter: "2025-03-01"
+    scheduledBefore: "2025-03-31"
+    sortBy: ENGAGEMENT_DESC
+    limit: 10
+  ) {
+    edges {
+      node {
+        id
+        text
+        status
+        scheduledAt
+        profile { channel username }
+        analytics { impressions likes comments shares }
+      }
+    }
+    pageInfo { hasNextPage endCursor }
+    totalCount
+  }
+}`,
+        },
+        {
+          lang: "javascript",
+          code: `const response = await fetch("https://api.buffer.com/graphql", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    query: \`{
+      posts(
+        status: SENT
+        scheduledAfter: "2025-03-01"
+        scheduledBefore: "2025-03-31"
+        sortBy: ENGAGEMENT_DESC
+        limit: 10
+      ) {
+        edges {
+          node {
+            id text status scheduledAt
+            profile { channel username }
+            analytics { impressions likes comments shares }
+          }
+        }
+        pageInfo { hasNextPage endCursor }
+        totalCount
+      }
+    }\`,
+  }),
+});
+
+const { data } = await response.json();
+console.log(\`\${data.posts.totalCount} posts found\`);
+data.posts.edges.forEach(({ node }) =>
+  console.log(\`[\${node.profile.channel}] \${node.analytics.impressions} impressions — \${node.text.slice(0, 50)}\`)
+);`,
+        },
+        {
+          lang: "python",
+          code: `import requests
+
+response = requests.post(
+    "https://api.buffer.com/graphql",
+    headers={
+        "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+        "Content-Type": "application/json",
+    },
+    json={
+        "query": """{
+            posts(
+                status: SENT
+                scheduledAfter: "2025-03-01"
+                scheduledBefore: "2025-03-31"
+                sortBy: ENGAGEMENT_DESC
+                limit: 10
+            ) {
+                edges {
+                    node {
+                        id text status scheduledAt
+                        profile { channel username }
+                        analytics { impressions likes comments shares }
+                    }
+                }
+                pageInfo { hasNextPage endCursor }
+                totalCount
+            }
+        }"""
+    },
+)
+
+posts = response.json()["data"]["posts"]
+print(f"{posts['totalCount']} posts found")
+for edge in posts["edges"]:
+    node = edge["node"]
+    print(f"[{node['profile']['channel']}] {node['analytics']['impressions']} impressions — {node['text'][:50]}")`,
+        },
+        {
+          lang: "curl",
+          code: `curl -X POST https://api.buffer.com/graphql \\
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "{ posts(status: SENT, scheduledAfter: \\"2025-03-01\\", scheduledBefore: \\"2025-03-31\\", sortBy: ENGAGEMENT_DESC, limit: 10) { edges { node { id text status profile { channel } analytics { impressions likes } } } totalCount } }"
+  }'`,
+        },
+      ],
+    },
   ],
   mutations: [
     {
@@ -1192,40 +1337,93 @@ else:
         },
       ],
     },
-    { name: "createPosts(input)", desc: "Batch create across multiple profiles in one call." },
-    { name: "updatePost(input)", desc: "Edit a DRAFT or QUEUED post. SENT posts cannot be modified." },
-    { name: "deletePost(id)", desc: "Permanently delete a DRAFT or QUEUED post." },
-    { name: "unqueuePost(id)", desc: "Revert a queued post back to draft status." },
-    { name: "publishNow(id)", desc: "Publish a draft or queued post immediately." },
-    { name: "addToQueue(id)", desc: "Add a draft post to the next available queue slot." },
-    { name: "updateSchedule(input)", desc: "Set the weekly auto-publish schedule for a profile." },
-    { name: "createTag(input)", desc: "Create a new tag for organizing posts." },
-    { name: "tagPost(postId, tagId)", desc: "Add a tag to a post." },
-    { name: "untagPost(postId, tagId)", desc: "Remove a tag from a post." },
-    { name: "uploadMedia(file, altText)", desc: "Upload an image or video for later attachment to posts." },
-    { name: "createWebhook(input)", desc: "Register a webhook for real-time event notifications." },
-    { name: "deleteWebhook(id)", desc: "Delete a webhook subscription." },
-    { name: "replyToComment(commentId, text)", desc: "Reply to a comment on a published post." },
   ],
   types: [
-    { name: "Profile", fields: "id, channel, name, username, avatarUrl, timezone, isConnected, schedules, posts, analytics" },
-    { name: "Post", fields: "id, text, status, profile, media, scheduledAt, sentAt, createdAt, updatedAt, tags, error, analytics" },
-    { name: "Media", fields: "id, type, url, thumbnailUrl, altText, width, height" },
-    { name: "Schedule", fields: "id, days, times" },
-    { name: "Tag", fields: "id, name, color" },
-    { name: "Webhook", fields: "id, url, events, enabled, secret, createdAt" },
-    { name: "Comment", fields: "id, text, authorName, authorAvatarUrl, createdAt, isReplied, post" },
-    { name: "PostAnalytics", fields: "impressions, likes, comments, shares, clicks" },
-    { name: "ProfileAnalytics", fields: "followers, followersChange, postCount, impressions, totalEngagement, engagementRate" },
-    { name: "RateLimitInfo", fields: "limit, remaining, resetsAt, windowSeconds" },
+    {
+      name: "Profile",
+      schema: `"""
+A connected social media account in Buffer.
+
+A profile represents one account on one platform. A single Buffer user
+typically has multiple profiles (e.g., one Instagram profile, one LinkedIn
+profile, one X profile). Each profile has its own posting schedule,
+analytics, and queue of posts.
+"""
+type Profile {
+  "Unique identifier for this profile"
+  id: ID!
+
+  "The social media platform this profile is connected to"
+  channel: Channel!
+
+  "The display name shown on the social media platform"
+  name: String!
+
+  "The username or handle on the platform, without the @ symbol"
+  username: String!
+
+  "URL to the profile's avatar image on the social media platform"
+  avatarUrl: String
+
+  "The IANA timezone used for scheduling posts (e.g., 'America/New_York')"
+  timezone: String!
+
+  "Whether this profile is currently connected and able to publish"
+  isConnected: Boolean!
+
+  "The posting schedule — weekly time slots when queued posts auto-publish"
+  schedules: [Schedule!]!
+
+  "Posts associated with this profile"
+  posts(status: PostStatus, limit: Int = 20, after: String, sortBy: PostSortOrder = SCHEDULED_AT_DESC): PostConnection!
+
+  "Performance metrics for this profile over a specified time period"
+  analytics(period: AnalyticsPeriod = MONTH, startDate: String, endDate: String): ProfileAnalytics!
+}`,
+      narrative: "A Profile represents one connected social media account on one platform. A typical Buffer user has several — one for Instagram, one for LinkedIn, one for X, and so on. Each profile has its own posting schedule, queue, and analytics. Use the channel field to identify the platform, and check isConnected before attempting to publish — a false value means the user needs to reauthorize.",
+      fields: [
+        { name: "id", type: "ID!", desc: "Unique identifier for this profile." },
+        { name: "channel", type: "Channel!", desc: "The social media platform this profile is connected to." },
+        { name: "name", type: "String!", desc: "The display name shown on the social media platform." },
+        { name: "username", type: "String!", desc: "The username or handle, without the @ symbol." },
+        { name: "avatarUrl", type: "String", desc: "URL to the profile's avatar image." },
+        { name: "timezone", type: "String!", desc: "IANA timezone for scheduling (e.g., 'America/New_York')." },
+        { name: "isConnected", type: "Boolean!", desc: "Whether this profile can currently publish. False means reauthorization needed." },
+        { name: "schedules", type: "[Schedule!]!", desc: "Weekly time slots when queued posts auto-publish." },
+        { name: "posts", type: "PostConnection!", desc: "Posts on this profile. Filterable by status, sortable, paginated." },
+        { name: "analytics", type: "ProfileAnalytics!", desc: "Aggregate engagement metrics over a time period." },
+      ],
+    },
   ],
   enums: [
-    { name: "Channel", values: "INSTAGRAM, FACEBOOK, LINKEDIN, X, BLUESKY, THREADS, TIKTOK, PINTEREST, YOUTUBE, MASTODON, GOOGLE_BUSINESS_PROFILE" },
-    { name: "PostStatus", values: "DRAFT, QUEUED, SENT, FAILED" },
-    { name: "MediaType", values: "IMAGE, VIDEO, LINK, DOCUMENT" },
-    { name: "AnalyticsPeriod", values: "WEEK, MONTH, QUARTER, YEAR, CUSTOM" },
-    { name: "PostSortOrder", values: "SCHEDULED_AT_DESC, SCHEDULED_AT_ASC, CREATED_AT_DESC, ENGAGEMENT_DESC" },
-    { name: "WebhookEvent", values: "POST_SENT, POST_FAILED, COMMENT_RECEIVED, PROFILE_CONNECTION_CHANGED, POST_UPDATED" },
+    {
+      name: "PostStatus",
+      schema: `"""
+The lifecycle state of a post within Buffer.
+A post moves through these states: DRAFT -> QUEUED -> SENT.
+Posts can also be moved back from QUEUED to DRAFT.
+"""
+enum PostStatus {
+  "The post is saved but not scheduled. It will not be published automatically."
+  DRAFT
+
+  "The post is scheduled and will be published at the specified time."
+  QUEUED
+
+  "The post has been successfully published to the target channel."
+  SENT
+
+  "The post failed to publish. Check the error field for details."
+  FAILED
+}`,
+      narrative: "A post moves through these lifecycle states: DRAFT (saved but not scheduled), QUEUED (scheduled for a specific time), SENT (successfully published), or FAILED (publication failed — check the error field). Posts can move backward from QUEUED to DRAFT via the unqueuePost mutation, but SENT and FAILED posts cannot be modified.",
+      values: [
+        { name: "DRAFT", desc: "The post is saved but not scheduled. It will not be published automatically." },
+        { name: "QUEUED", desc: "The post is scheduled and will be published at the specified time." },
+        { name: "SENT", desc: "The post has been successfully published to the target channel." },
+        { name: "FAILED", desc: "The post failed to publish. Check the error field for details." },
+      ],
+    },
   ],
 };
 
@@ -1283,7 +1481,7 @@ function APIReferencePage() {
         API Reference
       </h1>
       <p style={{ fontSize: 15, color: colors.textMuted, margin: "0 0 24px" }}>
-        {SCHEMA_TYPES.queries.length} queries, {SCHEMA_TYPES.mutations.length} mutations, {SCHEMA_TYPES.types.length} types, {SCHEMA_TYPES.enums.length} enums.
+        Showing {SCHEMA_TYPES.queries.length} query, {SCHEMA_TYPES.mutations.length} mutation, {SCHEMA_TYPES.types.length} type, {SCHEMA_TYPES.enums.length} enum — each traced from schema to reference.
       </p>
 
       <div style={{
@@ -1355,10 +1553,33 @@ function APIReferencePage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {SCHEMA_TYPES.types.map(t => (
             <div key={t.name} style={{
-              padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
+              borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface,
+              overflow: "hidden",
             }}>
-              <code style={{ fontSize: 14, color: colors.text, fontWeight: 600, display: "block", marginBottom: 4 }}>{t.name}</code>
-              <p style={{ fontSize: 12, color: colors.textMuted, margin: 0, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}>{t.fields}</p>
+              <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${colors.border}` }}>
+                <code style={{ fontSize: 15, color: colors.green, fontWeight: 600 }}>{t.name}</code>
+              </div>
+              <div style={{ padding: "0 18px 18px" }}>
+                <CodeBlock code={t.schema} lang="graphql" />
+                <p style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.7, margin: "16px 0" }}>
+                  {t.narrative}
+                </p>
+                <h4 style={{ fontSize: 12, fontWeight: 600, color: colors.textDim, textTransform: "uppercase", letterSpacing: 1, margin: "0 0 10px" }}>
+                  Fields
+                </h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {t.fields.map(f => (
+                    <div key={f.name} style={{
+                      display: "flex", gap: 10, alignItems: "baseline",
+                      padding: "8px 12px", borderRadius: 6, background: colors.bg,
+                    }}>
+                      <code style={{ fontSize: 13, color: colors.text, fontWeight: 600, minWidth: 110 }}>{f.name}</code>
+                      <code style={{ fontSize: 11, color: colors.cyan, minWidth: 100 }}>{f.type}</code>
+                      <span style={{ fontSize: 12, color: colors.textMuted, flex: 1 }}>{f.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -1368,10 +1589,32 @@ function APIReferencePage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {SCHEMA_TYPES.enums.map(e => (
             <div key={e.name} style={{
-              padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
+              borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface,
+              overflow: "hidden",
             }}>
-              <code style={{ fontSize: 14, color: colors.text, fontWeight: 600, display: "block", marginBottom: 4 }}>{e.name}</code>
-              <p style={{ fontSize: 12, color: colors.textMuted, margin: 0, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}>{e.values}</p>
+              <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${colors.border}` }}>
+                <code style={{ fontSize: 15, color: colors.green, fontWeight: 600 }}>{e.name}</code>
+              </div>
+              <div style={{ padding: "0 18px 18px" }}>
+                <CodeBlock code={e.schema} lang="graphql" />
+                <p style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.7, margin: "16px 0" }}>
+                  {e.narrative}
+                </p>
+                <h4 style={{ fontSize: 12, fontWeight: 600, color: colors.textDim, textTransform: "uppercase", letterSpacing: 1, margin: "0 0 10px" }}>
+                  Values
+                </h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {e.values.map(v => (
+                    <div key={v.name} style={{
+                      display: "flex", gap: 10, alignItems: "baseline",
+                      padding: "8px 12px", borderRadius: 6, background: colors.bg,
+                    }}>
+                      <code style={{ fontSize: 13, color: colors.text, fontWeight: 600, minWidth: 100 }}>{v.name}</code>
+                      <span style={{ fontSize: 12, color: colors.textMuted, flex: 1 }}>{v.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ))}
         </div>
