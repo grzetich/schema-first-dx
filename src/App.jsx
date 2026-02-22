@@ -1043,7 +1043,7 @@ posts(
   "How to order the results. Default: most recently scheduled first."
   sortBy: PostSortOrder = SCHEDULED_AT_DESC
 ): PostConnection!`,
-      narrative: "Search and filter posts across all profiles. You can narrow results by profile, lifecycle status, tag, date range, or text content. Results are paginated using cursor-based pagination — pass the endCursor from the previous page as the after argument to fetch the next page. Use sortBy to control ordering: by schedule date, creation date, or engagement.",
+      narrative: "Search and filter posts across all profiles. Useful for finding posts by status, tag, date range, or text content.",
       params: [
         { name: "profileId", type: "ID", required: false, desc: "Filter to posts on a specific profile. Omit to search across all profiles." },
         { name: "status", type: "PostStatus", required: false, desc: "Filter by lifecycle state (DRAFT, QUEUED, SENT, FAILED). Omit to return all." },
