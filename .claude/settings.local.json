@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tail:*)",
+      "Bash(cd /c/Users/edgrz/lib/schema-first-dx && npm run build 2>&1)",
+      "Bash(cd:*)",
+      "Bash(gh repo:*)",
+      "Bash(gh api:*)",
+      "Bash(cd /c/Users/edgrz/lib/schema-first-dx && npm i @vercel/analytics 2>&1)"
+    ]
+  }
+}
