@@ -1782,7 +1782,7 @@ export default function App() {
         </div>
         {renderPage()}
       </main>
-      <Analytics />
-    </div>
+<!--      <Analytics /> -->    
+  </div>
   );
 }
