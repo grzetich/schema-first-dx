@@ -596,40 +596,64 @@ query {
     ],
   },
   design: {
-    title: "AI-Native Design",
-    subtitle: "How the schema serves humans and AI agents from one source of truth",
+    title: "Schema Annotation Strategy",
+    subtitle: "How to write schema descriptions that work for developers, docs, IDEs, and AI agents simultaneously",
     sections: [
       {
-        heading: "The Problem",
-        body: "APIs now serve two audiences: human developers reading docs, and AI agents parsing specs to construct requests. Most providers design for humans first, then bolt on AI support through separate spec files or thick adapter layers. This kit takes a different approach: design for both audiences from the start.",
+        heading: "The Opportunity",
+        body: "Your GraphQL schema is already the single source of truth for your API's structure. With the right annotation strategy, it also becomes the source of truth for documentation, IDE hints, and AI agent integration. One investment serves every consumer.",
       },
       {
-        heading: "Why GraphQL Is Naturally AI-Friendly",
-        body: "Self-describing schema via introspection. Strong typing eliminates ambiguity. Enums declare valid values (no hallucinated strings). Descriptions serve docs, IDEs, and AI agents simultaneously. Explicit nullability (!) marks what's required.",
+        heading: "Descriptions Are Metadata, Not Narrative",
+        body: "Schema descriptions might look like prose, but they function as structured metadata. Each description is bound to a specific field, argument, or enum value by the schema itself. An AI agent doesn't need to parse a paragraph and guess which field it applies to. The schema defines that relationship explicitly. This is the difference between writing a Markdown doc that says 'the scheduledAt field accepts an ISO 8601 datetime' and attaching that same information directly to the scheduledAt field definition. Both contain the same words, but the schema version is unambiguous because the structure does the work.",
       },
       {
-        heading: "Schema Annotations That Do the Work",
-        body: "Every description is a complete sentence understandable without context. Enum values include platform constraints ('X — up to 280 characters'). Arguments document format, defaults, and behavioral consequences inline. Mutations describe preconditions and side effects.",
-        code: `# Good: AI agent knows the character limit
-"X (formerly Twitter) — text posts up to 280 characters"
-X
+        heading: "Writing Descriptions for Dual Audiences",
+        body: "Every description should be a complete sentence that makes sense without surrounding context. A developer skimming the docs and an AI agent parsing the schema need the same information: what this field does, what format it expects, and what happens when you use it. If a description requires you to read another page to understand it, it's not doing enough work.",
+        code: `# Weak: requires context from elsewhere
+"""Scheduling time."""
+scheduledAt: DateTime
 
-# Good: AI agent knows the behavioral consequence
+# Strong: self-contained, documents behavior
 """
 When to publish. ISO 8601 datetime.
-If provided → QUEUED. If omitted → DRAFT.
-The time must be in the future.
+If provided, the post is created as QUEUED.
+If omitted, the post is created as DRAFT.
+Must be in the future.
 """
 scheduledAt: DateTime`,
         lang: "graphql",
       },
       {
-        heading: "The Thin Bridge Pattern",
-        body: "The MCP server reads the schema via introspection. Each query becomes a read tool, each mutation a write tool. Names, descriptions, and parameters come directly from the schema. No manual mapping. When the schema evolves, tools update automatically. If an AI struggles with a tool, the fix belongs in the schema description, not the bridge layer.",
+        heading: "Embed Constraints Where They're Used",
+        body: "Don't make developers (or agents) look up constraints in a separate table. Platform character limits belong in the Channel enum descriptions. Required formats belong on the argument. Preconditions belong on the mutation. When an AI agent reads the Channel enum and sees 'X (formerly Twitter) — text posts up to 280 characters,' it generates correctly sized content without a separate lookup.",
+        code: `# Weak: just a label
+X
+
+# Strong: constraint is discoverable in context
+"""X (formerly Twitter) — text posts up to 280 characters"""
+X`,
+        lang: "graphql",
       },
       {
-        heading: "Try It Live",
-        body: "The 'AI Preview' tab on this site demonstrates this in practice. Claude is given only the raw schema — no custom instructions, no examples, no tool definitions. Type a task in plain English and watch it generate the correct GraphQL. The schema descriptions alone are sufficient.",
+        heading: "Document Side Effects on Mutations",
+        body: "Mutations aren't just data changes. They have behavioral consequences. Document what state transitions happen, what preconditions must be met, and what errors to expect. This is where most API docs fall short, and where the biggest gains are for both human developers and AI agents.",
+        code: `# Documents the precondition AND the consequence
+"""
+Revert a queued post back to draft status.
+The post must currently be QUEUED.
+Returns an error if the post is already SENT or DRAFT.
+"""
+unqueuePost(id: ID!): UnqueuePostPayload!`,
+        lang: "graphql",
+      },
+      {
+        heading: "The Thin Bridge Pattern",
+        body: "When schema descriptions carry enough context, the tooling layer stays thin. An MCP server can read the schema via introspection and expose every operation as a tool with no manual mapping. If an AI agent struggles with a tool, that's a signal the schema description needs improvement, not the bridge. Fix the source of truth and every consumer benefits.",
+      },
+      {
+        heading: "See It in Action",
+        body: "The AI Preview page demonstrates this approach. Claude was given only the annotated schema as context — no custom instructions, no few-shot examples, no tool definitions. The descriptions alone were sufficient for the model to select correct operations and structure valid queries.",
       },
     ],
   },
@@ -808,7 +832,7 @@ function LandingPage({ onNavigate }) {
             { icon: "🚀", title: "Quickstart Guide", desc: "JavaScript, Python, and curl examples. Zero to first call in 5 minutes.", link: "quickstart" },
             { icon: "⚠️", title: "Error Reference", desc: "Every error with response bodies, explanations, and fixes. Not just a code table.", link: "errors" },
             { icon: "🔄", title: "Workflow Patterns", desc: "Content calendars, analytics dashboards, RSS pipelines, cross-channel publishing.", link: "workflows" },
-            { icon: "🤖", title: "AI-Native Design Doc", desc: "Why well-annotated schemas replace thick adapter layers for AI agents.", link: "design" },
+            { icon: "🤖", title: "Annotation Strategy", desc: "How to write schema descriptions that serve developers, docs, and AI agents from one source.", link: "design" },
             { icon: "🔌", title: "Thin-Bridge MCP Server", desc: "~250 lines. Schema introspection → MCP tools. No manual mapping.", link: "mcp" },
           ].map((item, i) => (
             <div key={i} onClick={() => onNavigate(item.link)} style={{
@@ -865,65 +889,36 @@ function DocsPage({ docKey }) {
 }
 
 // ─── SCHEMA REFERENCE DATA ──────────────────────────────────────────────────
-const SCHEMA_TYPES = {
-  queries: [
-    { name: "profile(id: ID!)", returns: "Profile", desc: "Get a single profile by its unique identifier" },
-    { name: "profiles(channel: Channel)", returns: "[Profile!]!", desc: "List all connected social media profiles" },
-    { name: "post(id: ID!)", returns: "Post", desc: "Get a single post by its unique identifier" },
-    { name: "posts(profileId, status, tagId, ...)", returns: "PostConnection!", desc: "Search and filter posts. Status options: DRAFT, QUEUED, SENT, FAILED." },
-    { name: "tags", returns: "[Tag!]!", desc: "List all tags for organizing posts" },
-    { name: "webhooks", returns: "[Webhook!]!", desc: "List all registered webhook subscriptions" },
-    { name: "comments(postId: ID!)", returns: "CommentConnection!", desc: "Get comments on a published post" },
-    { name: "rateLimit", returns: "RateLimitInfo!", desc: "Get current rate limit status" },
-  ],
-  mutations: [
-    { name: "createPost(input)", desc: "Create a post for one profile. Omit scheduledAt → DRAFT, include it → QUEUED." },
-    { name: "createPosts(input)", desc: "Batch create across multiple profiles in one call." },
-    { name: "updatePost(input)", desc: "Edit a DRAFT or QUEUED post. SENT posts cannot be modified." },
-    { name: "deletePost(id)", desc: "Permanently delete a DRAFT or QUEUED post." },
-    { name: "unqueuePost(id)", desc: "Revert a queued post back to draft status." },
-    { name: "publishNow(id)", desc: "Publish a draft or queued post immediately." },
-    { name: "addToQueue(id)", desc: "Add a draft post to the next available queue slot." },
-    { name: "updateSchedule(input)", desc: "Set the weekly auto-publish schedule for a profile." },
-    { name: "createTag(input)", desc: "Create a new tag for organizing posts." },
-    { name: "tagPost(postId, tagId)", desc: "Add a tag to a post." },
-    { name: "untagPost(postId, tagId)", desc: "Remove a tag from a post." },
-    { name: "uploadMedia(file, altText)", desc: "Upload an image or video for later attachment to posts." },
-    { name: "createWebhook(input)", desc: "Register a webhook for real-time event notifications." },
-    { name: "deleteWebhook(id)", desc: "Delete a webhook subscription." },
-    { name: "replyToComment(commentId, text)", desc: "Reply to a comment on a published post." },
-  ],
-  types: [
-    { name: "Profile", fields: "id, channel, name, username, avatarUrl, timezone, isConnected, schedules, posts, analytics" },
-    { name: "Post", fields: "id, text, status, profile, media, scheduledAt, sentAt, createdAt, updatedAt, tags, error, analytics" },
-    { name: "Media", fields: "id, type, url, thumbnailUrl, altText, width, height" },
-    { name: "Schedule", fields: "id, days, times" },
-    { name: "Tag", fields: "id, name, color" },
-    { name: "Webhook", fields: "id, url, events, enabled, secret, createdAt" },
-    { name: "Comment", fields: "id, text, authorName, authorAvatarUrl, createdAt, isReplied, post" },
-    { name: "PostAnalytics", fields: "impressions, likes, comments, shares, clicks" },
-    { name: "ProfileAnalytics", fields: "followers, followersChange, postCount, impressions, totalEngagement, engagementRate" },
-    { name: "RateLimitInfo", fields: "limit, remaining, resetsAt, windowSeconds" },
-  ],
-  enums: [
-    { name: "Channel", values: "INSTAGRAM, FACEBOOK, LINKEDIN, X, BLUESKY, THREADS, TIKTOK, PINTEREST, YOUTUBE, MASTODON, GOOGLE_BUSINESS_PROFILE" },
-    { name: "PostStatus", values: "DRAFT, QUEUED, SENT, FAILED" },
-    { name: "MediaType", values: "IMAGE, VIDEO, LINK, DOCUMENT" },
-    { name: "AnalyticsPeriod", values: "WEEK, MONTH, QUARTER, YEAR, CUSTOM" },
-    { name: "PostSortOrder", values: "SCHEDULED_AT_DESC, SCHEDULED_AT_ASC, CREATED_AT_DESC, ENGAGEMENT_DESC" },
-    { name: "WebhookEvent", values: "POST_SENT, POST_FAILED, COMMENT_RECEIVED, PROFILE_CONNECTION_CHANGED, POST_UPDATED" },
-  ],
-};
+// One example per category to demonstrate documentation depth without
+// prescribing Buffer's full API surface.
 
 function APIReferencePage() {
   const [section, setSection] = useState("reads");
+
+  const paramTableStyle = {
+    width: "100%", borderCollapse: "collapse", fontSize: 13, marginTop: 12,
+  };
+  const thStyle = {
+    textAlign: "left", padding: "8px 12px", fontSize: 11, fontWeight: 600,
+    color: colors.textDim, textTransform: "uppercase", letterSpacing: 1,
+    borderBottom: `1px solid ${colors.border}`,
+  };
+  const tdStyle = {
+    padding: "8px 12px", borderBottom: `1px solid ${colors.border}`,
+    color: colors.textMuted, verticalAlign: "top",
+  };
+  const codeStyle = { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: 12 };
+
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "40px 20px" }}>
       <h1 style={{ fontSize: 32, fontWeight: 700, color: colors.text, margin: "0 0 8px", fontFamily: "'DM Serif Display', Georgia, serif" }}>
         API Reference
       </h1>
-      <p style={{ fontSize: 15, color: colors.textMuted, margin: "0 0 24px" }}>
-        {SCHEMA_TYPES.queries.length} queries, {SCHEMA_TYPES.mutations.length} mutations, {SCHEMA_TYPES.types.length} types, {SCHEMA_TYPES.enums.length} enums.
+      <p style={{ fontSize: 15, color: colors.textMuted, margin: "0 0 8px" }}>
+        Example reference entries showing the level of detail each operation, type, and enum would receive.
+      </p>
+      <p style={{ fontSize: 13, color: colors.textDim, margin: "0 0 24px" }}>
+        One example per category. A production reference would follow this format for every operation in the schema.
       </p>
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
         {[
@@ -937,7 +932,6 @@ function APIReferencePage() {
             background: section === t.key ? colors.accentSoft : "transparent",
             color: section === t.key ? colors.accent : colors.textMuted,
             cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: 500,
-            
           }}>
             {t.label}
           </button>
@@ -945,57 +939,194 @@ function APIReferencePage() {
       </div>
 
       {section === "reads" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {SCHEMA_TYPES.queries.map(q => (
-            <div key={q.name} style={{
-              padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-                <code style={{ fontSize: 13, color: colors.accent }}>{q.name}</code>
-                <code style={{ fontSize: 11, color: colors.cyan }}>{q.returns}</code>
-              </div>
-              <p style={{ fontSize: 12, color: colors.textMuted, margin: 0 }}>{q.desc}</p>
-            </div>
-          ))}
+        <div style={{ padding: 24, borderRadius: 12, border: `1px solid ${colors.border}`, background: colors.surface }}>
+          <code style={{ fontSize: 16, color: colors.accent, fontWeight: 600 }}>posts</code>
+          <code style={{ fontSize: 12, color: colors.cyan, marginLeft: 12 }}>→ PostConnection!</code>
+          <p style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.7, margin: "12px 0 0" }}>
+            Search and filter posts across all connected profiles. Returns a paginated connection with edges, 
+            nodes, and page info. Supports filtering by profile, status, tag, and date range, with configurable sort order.
+          </p>
+          <table style={paramTableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Parameter</th>
+                <th style={thStyle}>Type</th>
+                <th style={thStyle}>Required</th>
+                <th style={thStyle}>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>profileId</td>
+                <td style={{ ...tdStyle, ...codeStyle }}>ID</td>
+                <td style={tdStyle}>No</td>
+                <td style={tdStyle}>Filter to a single profile. Omit to search across all profiles.</td>
+              </tr>
+              <tr>
+                <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>status</td>
+                <td style={{ ...tdStyle, ...codeStyle }}>PostStatus</td>
+                <td style={tdStyle}>No</td>
+                <td style={tdStyle}>Filter by status: DRAFT, QUEUED, SENT, or FAILED.</td>
+              </tr>
+              <tr>
+                <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>tagId</td>
+                <td style={{ ...tdStyle, ...codeStyle }}>ID</td>
+                <td style={tdStyle}>No</td>
+                <td style={tdStyle}>Filter to posts with a specific tag.</td>
+              </tr>
+              <tr>
+                <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>scheduledAfter</td>
+                <td style={{ ...tdStyle, ...codeStyle }}>DateTime</td>
+                <td style={tdStyle}>No</td>
+                <td style={tdStyle}>Only return posts scheduled after this ISO 8601 datetime.</td>
+              </tr>
+              <tr>
+                <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>sortBy</td>
+                <td style={{ ...tdStyle, ...codeStyle }}>PostSortOrder</td>
+                <td style={tdStyle}>No</td>
+                <td style={tdStyle}>Sort order. Default: SCHEDULED_AT_DESC.</td>
+              </tr>
+              <tr>
+                <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>limit</td>
+                <td style={{ ...tdStyle, ...codeStyle }}>Int</td>
+                <td style={tdStyle}>No</td>
+                <td style={tdStyle}>Max results to return. Default: 20, max: 100.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
 
       {section === "writes" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {SCHEMA_TYPES.mutations.map(m => (
-            <div key={m.name} style={{
-              padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
-            }}>
-              <code style={{ fontSize: 13, color: colors.amber, display: "block", marginBottom: 4 }}>{m.name}</code>
-              <p style={{ fontSize: 12, color: colors.textMuted, margin: 0 }}>{m.desc}</p>
-            </div>
-          ))}
+        <div style={{ padding: 24, borderRadius: 12, border: `1px solid ${colors.border}`, background: colors.surface }}>
+          <code style={{ fontSize: 16, color: colors.amber, fontWeight: 600 }}>createPost</code>
+          <code style={{ fontSize: 12, color: colors.cyan, marginLeft: 12 }}>→ CreatePostPayload!</code>
+          <p style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.7, margin: "12px 0 0" }}>
+            Create a post for a single profile. If <code style={codeStyle}>scheduledAt</code> is provided, the post 
+            is created as QUEUED and will publish at the specified time. If omitted, the post is created as DRAFT. 
+            Always check both <code style={codeStyle}>success</code> and <code style={codeStyle}>error</code> in the response.
+          </p>
+          <table style={paramTableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Field</th>
+                <th style={thStyle}>Type</th>
+                <th style={thStyle}>Required</th>
+                <th style={thStyle}>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>profileId</td>
+                <td style={{ ...tdStyle, ...codeStyle }}>ID!</td>
+                <td style={tdStyle}>Yes</td>
+                <td style={tdStyle}>The profile to create the post on.</td>
+              </tr>
+              <tr>
+                <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>text</td>
+                <td style={{ ...tdStyle, ...codeStyle }}>String!</td>
+                <td style={tdStyle}>Yes</td>
+                <td style={tdStyle}>Post content. Must respect the channel's character limit (see Channel enum).</td>
+              </tr>
+              <tr>
+                <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>scheduledAt</td>
+                <td style={{ ...tdStyle, ...codeStyle }}>DateTime</td>
+                <td style={tdStyle}>No</td>
+                <td style={tdStyle}>ISO 8601 datetime. If provided → QUEUED. If omitted → DRAFT. Must be in the future.</td>
+              </tr>
+              <tr>
+                <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>mediaIds</td>
+                <td style={{ ...tdStyle, ...codeStyle }}>[ID!]</td>
+                <td style={tdStyle}>No</td>
+                <td style={tdStyle}>IDs from uploadMedia. Attach images or video to the post.</td>
+              </tr>
+              <tr>
+                <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>tagIds</td>
+                <td style={{ ...tdStyle, ...codeStyle }}>[ID!]</td>
+                <td style={tdStyle}>No</td>
+                <td style={tdStyle}>Tags to apply to the post at creation time.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
 
       {section === "types" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {SCHEMA_TYPES.types.map(t => (
-            <div key={t.name} style={{
-              padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
-            }}>
-              <code style={{ fontSize: 14, color: colors.text, fontWeight: 600, display: "block", marginBottom: 4 }}>{t.name}</code>
-              <p style={{ fontSize: 12, color: colors.textMuted, margin: 0, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}>{t.fields}</p>
-            </div>
-          ))}
+        <div style={{ padding: 24, borderRadius: 12, border: `1px solid ${colors.border}`, background: colors.surface }}>
+          <code style={{ fontSize: 16, color: colors.text, fontWeight: 600 }}>Post</code>
+          <p style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.7, margin: "12px 0 0" }}>
+            A single piece of content for one social media profile. A Post moves through a lifecycle: 
+            DRAFT → QUEUED → SENT (or FAILED). Drafts can be edited, queued posts can be unqueued 
+            back to draft, and sent posts are read-only.
+          </p>
+          <table style={paramTableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Field</th>
+                <th style={thStyle}>Type</th>
+                <th style={thStyle}>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["id", "ID!", "Unique identifier"],
+                ["text", "String!", "Post content as submitted"],
+                ["status", "PostStatus!", "Current lifecycle state: DRAFT, QUEUED, SENT, or FAILED"],
+                ["profile", "Profile!", "The social media profile this post belongs to"],
+                ["media", "[Media!]", "Attached images or video, if any"],
+                ["scheduledAt", "DateTime", "When the post is scheduled to publish (null for drafts)"],
+                ["sentAt", "DateTime", "When the post was actually published (null until sent)"],
+                ["createdAt", "DateTime!", "When the post was created"],
+                ["updatedAt", "DateTime!", "When the post was last modified"],
+                ["tags", "[Tag!]!", "Tags applied to this post for organization"],
+                ["error", "String", "Error message if the post failed to publish"],
+                ["analytics", "PostAnalytics", "Engagement metrics (only available for SENT posts)"],
+              ].map(([field, type, desc], i) => (
+                <tr key={i}>
+                  <td style={{ ...tdStyle, ...codeStyle, color: colors.text }}>{field}</td>
+                  <td style={{ ...tdStyle, ...codeStyle }}>{type}</td>
+                  <td style={tdStyle}>{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
       {section === "enums" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {SCHEMA_TYPES.enums.map(e => (
-            <div key={e.name} style={{
-              padding: "12px 14px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.surface,
-            }}>
-              <code style={{ fontSize: 14, color: colors.text, fontWeight: 600, display: "block", marginBottom: 4 }}>{e.name}</code>
-              <p style={{ fontSize: 12, color: colors.textMuted, margin: 0, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}>{e.values}</p>
-            </div>
-          ))}
+        <div style={{ padding: 24, borderRadius: 12, border: `1px solid ${colors.border}`, background: colors.surface }}>
+          <code style={{ fontSize: 16, color: colors.text, fontWeight: 600 }}>Channel</code>
+          <p style={{ fontSize: 14, color: colors.textMuted, lineHeight: 1.7, margin: "12px 0 0" }}>
+            Supported social media platforms. Each value includes the platform name and character limit 
+            in its schema description, so AI agents and developers can validate content length without a separate lookup.
+          </p>
+          <table style={paramTableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Value</th>
+                <th style={thStyle}>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["INSTAGRAM", "Instagram — caption up to 2,200 characters"],
+                ["FACEBOOK", "Facebook — text posts up to 63,206 characters"],
+                ["LINKEDIN", "LinkedIn — text posts up to 3,000 characters"],
+                ["X", "X (formerly Twitter) — text posts up to 280 characters"],
+                ["BLUESKY", "Bluesky — text posts up to 300 characters"],
+                ["THREADS", "Threads — text posts up to 500 characters"],
+                ["TIKTOK", "TikTok — video caption up to 2,200 characters"],
+                ["PINTEREST", "Pinterest — pin description up to 500 characters"],
+                ["YOUTUBE", "YouTube — video description up to 5,000 characters"],
+                ["MASTODON", "Mastodon — text posts up to 500 characters (default)"],
+              ].map(([value, desc], i) => (
+                <tr key={i}>
+                  <td style={{ ...tdStyle, ...codeStyle, color: colors.accent }}>{value}</td>
+                  <td style={tdStyle}>{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -1220,7 +1351,7 @@ export default function App() {
     { key: "workflows", label: "Workflows", icon: "⟳" },
     { key: "reference", label: "API Reference", icon: "⬡" },
     { key: "mcp", label: "MCP Server", icon: "🔌" },
-    { key: "design", label: "AI Design", icon: "◇" },
+    { key: "design", label: "Annotations", icon: "◇" },
     { key: "ai", label: "AI Preview", icon: "✦" },
   ];
 
