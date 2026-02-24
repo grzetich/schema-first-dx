@@ -635,19 +635,6 @@ scheduledAt: DateTime`,
   },
 };
 
-// ─── OLD VS NEW COMPARISON DATA ─────────────────────────────────────────────
-const COMPARISON = [
-  { area: "Language examples", old: "Raw HTTP only, URL-encoded POST data", new: "JavaScript, Python, curl, and GraphQL" },
-  { area: "Error documentation", old: "Bare table on separate page. No response bodies.", new: "Contextual errors inline, grouped by operation, with fixes" },
-  { area: "Workflow guidance", old: "Isolated endpoints, no sequencing", new: "Multi-step patterns (content calendar, analytics, RSS pipeline)" },
-  { area: "Media handling", old: "Confusing media[] associative array, 'not all fields required'", new: "Two-step upload → attach pattern with clear size/format limits" },
-  { area: "Rate limit info", old: "60 req/min, 429 with no context", new: "X-RateLimit-* headers on every response + queryable rateLimit field" },
-  { area: "Event notifications", old: "Polling only (eats rate limit budget)", new: "Webhooks with signed payloads and typed events" },
-  { area: "Comment management", old: "Not available via API", new: "Query comments, reply through API" },
-  { area: "AI/agent support", old: "Not considered", new: "Schema annotations designed for LLM consumption + thin MCP bridge" },
-  { area: "Character limits", old: "Stale (Twitter 140), required separate /info call", new: "Embedded in Channel enum descriptions, always current" },
-];
-
 // ─── MCP TOOLS ───────────────────────────────────────────────────────────────
 const MCP_TOOLS = [
   { name: "query_profile", desc: "Get a single profile by ID", type: "read" },
@@ -798,41 +785,12 @@ function LandingPage({ onNavigate }) {
           }}>
             AI Preview →
           </button>
-          <button onClick={() => onNavigate("quickstart")} style={{
+          <button onClick={() => onNavigate("reference")} style={{
             padding: "12px 24px", borderRadius: 8, border: `1px solid ${colors.border}`, cursor: "pointer",
             background: "transparent", color: colors.text, fontSize: 14, fontWeight: 500, fontFamily: "inherit",
           }}>
             Read the Docs
           </button>
-        </div>
-      </div>
-
-      <div style={{
-        border: `1px solid ${colors.border}`, borderRadius: 12, padding: 32, marginBottom: 48,
-        background: colors.surface,
-      }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, color: colors.text, margin: "0 0 8px" }}>
-          What was missing from the old API docs?
-        </h2>
-        <p style={{ fontSize: 14, color: colors.textMuted, margin: "0 0 24px" }}>
-          A side-by-side comparison based on analysis of Buffer's original developer documentation.
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 1fr", gap: 1, fontSize: 11, fontWeight: 600, color: colors.textDim, textTransform: "uppercase", letterSpacing: 1, padding: "0 12px 8px" }}>
-            <span>Area</span><span>Old API</span><span>This Kit</span>
-          </div>
-          {COMPARISON.map((row, i) => (
-            <div key={i} style={{
-              display: "grid", gridTemplateColumns: "180px 1fr 1fr", gap: 1,
-              padding: "10px 12px", borderRadius: 6,
-              background: i % 2 === 0 ? "transparent" : "#ffffff04",
-              fontSize: 13,
-            }}>
-              <span style={{ color: colors.text, fontWeight: 500 }}>{row.area}</span>
-              <span style={{ color: colors.red, fontSize: 12 }}>{row.old}</span>
-              <span style={{ color: colors.green, fontSize: 12 }}>{row.new}</span>
-            </div>
-          ))}
         </div>
       </div>
 
