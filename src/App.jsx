@@ -713,24 +713,24 @@ scheduledAt: DateTime`,
       },
       {
         heading: "The Thin Bridge Pattern",
-        body: "The MCP server reads the schema via introspection. Each query becomes a read tool, each mutation a write tool. Names, descriptions, and parameters come directly from the schema. No manual mapping. When the schema evolves, tools update automatically. If an AI struggles with a tool, the fix belongs in the schema description, not the bridge layer.",
+        body: "The {{link:MCP server:mcp}} reads the schema via introspection. Each query becomes a read tool, each mutation a write tool. Names, descriptions, and parameters come directly from the schema. No manual mapping. When the schema evolves, tools update automatically. If an AI struggles with a tool, the fix belongs in the schema description, not the bridge layer.",
       },
     ],
   },
 };
 
 // ─── OLD VS NEW COMPARISON DATA ─────────────────────────────────────────────
-const COMPARISON = [
-  { area: "Language examples", old: "Raw HTTP only, URL-encoded POST data", new: "JavaScript, Python, curl, and GraphQL" },
-  { area: "Error documentation", old: "Bare table on separate page. No response bodies.", new: "Contextual errors inline, grouped by operation, with fixes" },
-  { area: "Workflow guidance", old: "Isolated endpoints, no sequencing", new: "Multi-step patterns (content calendar, analytics, RSS pipeline)" },
-  { area: "Media handling", old: "Confusing media[] associative array, 'not all fields required'", new: "Two-step upload → attach pattern with clear size/format limits" },
-  { area: "Rate limit info", old: "60 req/min, 429 with no context", new: "X-RateLimit-* headers on every response + queryable rateLimit field" },
-  { area: "Event notifications", old: "Polling only (eats rate limit budget)", new: "Webhooks with signed payloads and typed events" },
-  { area: "Comment management", old: "Not available via API", new: "Query comments, reply through API" },
-  { area: "AI/agent support", old: "Not considered", new: "Schema annotations designed for LLM consumption + thin MCP bridge" },
-  { area: "Character limits", old: "Stale (Twitter 140), required separate /info call", new: "Embedded in Channel enum descriptions, always current" },
-];
+// const COMPARISON = [
+//   { area: "Language examples", old: "Raw HTTP only, URL-encoded POST data", new: "JavaScript, Python, curl, and GraphQL" },
+//   { area: "Error documentation", old: "Bare table on separate page. No response bodies.", new: "Contextual errors inline, grouped by operation, with fixes" },
+//   { area: "Workflow guidance", old: "Isolated endpoints, no sequencing", new: "Multi-step patterns (content calendar, analytics, RSS pipeline)" },
+//   { area: "Media handling", old: "Confusing media[] associative array, 'not all fields required'", new: "Two-step upload → attach pattern with clear size/format limits" },
+//   { area: "Rate limit info", old: "60 req/min, 429 with no context", new: "X-RateLimit-* headers on every response + queryable rateLimit field" },
+//   { area: "Event notifications", old: "Polling only (eats rate limit budget)", new: "Webhooks with signed payloads and typed events" },
+//   { area: "Comment management", old: "Not available via API", new: "Query comments, reply through API" },
+//   { area: "AI/agent support", old: "Not considered", new: "Schema annotations designed for LLM consumption + thin MCP bridge" },
+//   { area: "Character limits", old: "Stale (Twitter 140), required separate /info call", new: "Embedded in Channel enum descriptions, always current" },
+// ];
 
 // ─── MCP TOOLS ───────────────────────────────────────────────────────────────
 const MCP_TOOLS = [
@@ -856,17 +856,17 @@ function NavItem({ label, active, onClick, icon }) {
   );
 }
 
-function Badge({ children, color = colors.accent, bg = colors.accentSoft }) {
-  return (
-    <span style={{
-      display: "inline-block", padding: "2px 8px", borderRadius: 4,
-      fontSize: 11, fontWeight: 600, color, background: bg,
-      fontFamily: "monospace", letterSpacing: 0.5,
-    }}>
-      {children}
-    </span>
-  );
-}
+// function Badge({ children, color = colors.accent, bg = colors.accentSoft }) {
+//   return (
+//     <span style={{
+//       display: "inline-block", padding: "2px 8px", borderRadius: 4,
+//       fontSize: 11, fontWeight: 600, color, background: bg,
+//       fontFamily: "monospace", letterSpacing: 0.5,
+//     }}>
+//       {children}
+//     </span>
+//   );
+// }
 
 // ─── PAGES ───────────────────────────────────────────────────────────────────
 
@@ -894,45 +894,15 @@ function LandingPage({ onNavigate }) {
           humans reading docs, AI agents parsing schemas, and everyone in between. Inspired
           by Buffer's API rebuild and designed to show what modern developer experience could look like.
         </p>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button onClick={() => onNavigate("quickstart")} style={{
+        {/* <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <button onClick={() => onNavigate("APIReferencePage")} style={{
             padding: "12px 24px", borderRadius: 8, border: "none", cursor: "pointer",
             background: colors.accent, color: "#fff", fontSize: 14, fontWeight: 600, fontFamily: "inherit",
           }}>
             Read the Docs →
           </button>
-        </div>
+        </div> */}
       </div>
-
-      <div style={{
-        border: `1px solid ${colors.border}`, borderRadius: 12, padding: 32, marginBottom: 48,
-        background: colors.surface,
-      }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, color: colors.text, margin: "0 0 8px" }}>
-          What was missing from the old API docs?
-        </h2>
-        <p style={{ fontSize: 14, color: colors.textMuted, margin: "0 0 24px" }}>
-          A side-by-side comparison based on analysis of Buffer's original developer documentation.
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 1fr", gap: 1, fontSize: 11, fontWeight: 600, color: colors.textDim, textTransform: "uppercase", letterSpacing: 1, padding: "0 12px 8px" }}>
-            <span>Area</span><span>Old API</span><span>This Kit</span>
-          </div>
-          {COMPARISON.map((row, i) => (
-            <div key={i} style={{
-              display: "grid", gridTemplateColumns: "180px 1fr 1fr", gap: 1,
-              padding: "10px 12px", borderRadius: 6,
-              background: i % 2 === 0 ? "transparent" : "#ffffff04",
-              fontSize: 13,
-            }}>
-              <span style={{ color: colors.text, fontWeight: 500 }}>{row.area}</span>
-              <span style={{ color: colors.red, fontSize: 12 }}>{row.old}</span>
-              <span style={{ color: colors.green, fontSize: 12 }}>{row.new}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
       <div style={{
         border: `1px solid ${colors.border}`, borderRadius: 12, padding: 32,
         background: colors.surface, marginBottom: 48,
@@ -943,10 +913,10 @@ function LandingPage({ onNavigate }) {
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           {[
-            { icon: "📐", title: "Annotated GraphQL Schema", desc: "1,100+ lines with descriptions designed for both human and AI consumption", link: "reference" },
-            { icon: "🚀", title: "Quickstart Guide", desc: "JavaScript, Python, and curl examples. Zero to first call in 5 minutes.", link: "quickstart" },
-            { icon: "⚠️", title: "Error Reference", desc: "Every error with response bodies, explanations, and fixes. Not just a code table.", link: "errors" },
-            { icon: "🔄", title: "Workflow Patterns", desc: "Content calendars, analytics dashboards, RSS pipelines, cross-channel publishing.", link: "workflows" },
+            { icon: "📐", title: "API Reference", desc: "Showing 1 query, 1 mutation, 1 type, 1 enum as examples of the API reference.", link: "reference" },
+            { icon: "🚀", title: "Quickstart Guide", desc: "JavaScript, Python, and curl examples for popular use cases. Zero to first call in 5 minutes.", link: "quickstart" },
+            { icon: "⚠️", title: "Error Reference", desc: "Example of errors with response bodies, explanations, and fixes.", link: "errors" },
+            { icon: "🔄", title: "Workflow Patterns", desc: "Code examples for content calendars, analytics dashboards, RSS pipelines, and cross-channel publishing.", link: "workflows" },
             { icon: "🤖", title: "AI-Native Design Doc", desc: "Why well-annotated schemas replace thick adapter layers for AI agents.", link: "design" },
             { icon: "🔌", title: "Thin-Bridge MCP Server", desc: "~250 lines. Schema introspection → MCP tools. No manual mapping.", link: "mcp" },
           ].map((item, i) => (
@@ -1637,10 +1607,10 @@ function MCPServerPage() {
       <p style={{ fontSize: 13, color: colors.textDim, margin: "0 0 32px" }}>
         {MCP_TOOLS.length} tools generated from the schema via introspection. ~250 lines of glue code.
         The server reads the schema, turns each query into a read tool and each mutation into a write tool. 
-        Names, descriptions, and parameters come directly from the type definitions. When the schema evolves, tools update automatically.
+        Names, descriptions, and parameters come directly from the type definitions in the schema. When the schema evolves, tools available to the MCP server update automatically.
       </p>
 
-      <h3 style={{ fontSize: 13, color: colors.green, fontWeight: 600, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: 1 }}>
+      {/* <h3 style={{ fontSize: 13, color: colors.green, fontWeight: 600, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: 1 }}>
         Read ({reads.length})
       </h3>
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 24 }}>
@@ -1669,26 +1639,19 @@ function MCPServerPage() {
             <span style={{ fontSize: 12, color: colors.textMuted }}>{t.desc}</span>
           </div>
         ))}
-      </div>
+      </div> */}
 
-      <div style={{
-        border: `1px solid ${colors.border}`, borderRadius: 12, padding: 24,
-        background: colors.surface,
-      }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, color: colors.text, margin: "0 0 10px" }}>
-          The thin bridge pattern
-        </h3>
-        <div style={{ fontSize: 13, color: colors.textMuted, lineHeight: 1.7 }}>
-          <p style={{ margin: "0 0 10px" }}>
-            The MCP server is intentionally minimal. It reads the schema via introspection and exposes each 
-            operation as a tool. No hand-written descriptions, no manual parameter mapping, no domain logic in the bridge.
-          </p>
-          <p style={{ margin: 0 }}>
-            When an AI agent struggles with a tool, that's a signal the <strong style={{ color: colors.text }}>schema description</strong> needs 
-            improvement, not the bridge. Fix the source of truth and every consumer benefits: docs, IDEs, MCP tools, and direct API callers.
-          </p>
-        </div>
-      </div>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: colors.text, margin: "0 0 8px", fontFamily: "'DM Serif Display', Georgia, serif" }}>
+        The thin bridge pattern
+      </h2>
+      <p style={{ fontSize: 13, color: colors.textDim, margin: "0 0 32px" }}>
+        The MCP server is intentionally minimal. It reads the schema via introspection and exposes each
+        operation as a tool. No hand-written descriptions, no manual parameter mapping, no domain logic in the bridge. This pattern also makes the MCP server resilient to change. As the schema evolves, tools update automatically. If an operation is removed, the corresponding tool disappears without a trace. If a new operation is added, it's immediately available to the agent with no bridge code required. For more information about the thin bridge pattern, see <a href="https://grzeti.ch/blog/data-conversational.html" target="_blank" rel="noopener noreferrer" style={{ color: colors.accent, textDecoration: "underline" }}>this article</a>.
+      </p>
+      <p style={{ fontSize: 13, color: colors.textDim, margin: "0 0 32px" }}>
+        When an AI agent struggles with a tool, that's a signal the <strong style={{ color: colors.text }}>schema description</strong> needs
+        improvement, not the bridge. Fix the source of truth and every consumer benefits: docs, IDEs, MCP tools, and direct API callers.
+      </p>
     </div>
   );
 }
