@@ -994,10 +994,67 @@ function APIReferencePage() {
               </tr>
             </tbody>
           </table>
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>Schema</h4>
+          <CodeBlock code={`"""
+Search and filter posts across all connected profiles.
+Returns a paginated connection. Supports filtering by
+profile, status, tag, and date range.
+"""
+posts(
+  profileId: ID
+  status: PostStatus
+  tagId: ID
+  scheduledAfter: DateTime
+  sortBy: PostSortOrder = SCHEDULED_AT_DESC
+  limit: Int = 20
+): PostConnection!`} lang="graphql" />
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>JavaScript</h4>
+          <CodeBlock code={`const response = await fetch("https://api.buffer.com/graphql", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    query: \`{
+      posts(status: SENT, sortBy: ENGAGEMENT_DESC, limit: 5) {
+        edges {
+          node { id text sentAt analytics { impressions likes } }
+        }
+      }
+    }\`,
+  }),
+});
+
+const { data } = await response.json();
+data.posts.edges.forEach(e => console.log(e.node));`} lang="javascript" />
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>Python</h4>
+          <CodeBlock code={`response = requests.post(
+    "https://api.buffer.com/graphql",
+    headers={
+        "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+        "Content-Type": "application/json",
+    },
+    json={
+        "query": """{
+            posts(status: SENT, sortBy: ENGAGEMENT_DESC, limit: 5) {
+                edges {
+                    node { id text sentAt analytics { impressions likes } }
+                }
+            }
+        }"""
+    },
+)
+
+for edge in response.json()["data"]["posts"]["edges"]:
+    print(edge["node"])`} lang="python" />
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>curl</h4>
+          <CodeBlock code={`curl -X POST https://api.buffer.com/graphql \\
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query": "{ posts(status: SENT, sortBy: ENGAGEMENT_DESC, limit: 5) { edges { node { id text sentAt } } } }"}'`} lang="curl" />
         </div>
       )}
-
-      {section === "writes" && (
         <div style={{ padding: 24, borderRadius: 12, border: `1px solid ${colors.border}`, background: colors.surface }}>
           <code style={{ fontSize: 16, color: colors.amber, fontWeight: 600 }}>createPost</code>
           <code style={{ fontSize: 12, color: colors.cyan, marginLeft: 12 }}>→ CreatePostPayload!</code>
@@ -1048,6 +1105,89 @@ function APIReferencePage() {
               </tr>
             </tbody>
           </table>
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>Schema</h4>
+          <CodeBlock code={`"""
+Create a post for a single profile.
+If scheduledAt is provided, the post is created as QUEUED.
+If omitted, the post is created as DRAFT.
+Always check success and error in the response.
+"""
+createPost(input: CreatePostInput!): CreatePostPayload!
+
+input CreatePostInput {
+  profileId: ID!
+  text: String!
+  scheduledAt: DateTime
+  mediaIds: [ID!]
+  tagIds: [ID!]
+}`} lang="graphql" />
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>JavaScript</h4>
+          <CodeBlock code={`const response = await fetch("https://api.buffer.com/graphql", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    query: \`mutation($input: CreatePostInput!) {
+      createPost(input: $input) {
+        success
+        post { id status scheduledAt }
+        error
+      }
+    }\`,
+    variables: {
+      input: {
+        profileId: "prof_abc123",
+        text: "Excited to share what we've been working on! 🚀",
+        scheduledAt: "2025-04-01T14:30:00Z",
+      },
+    },
+  }),
+});
+
+const { data } = await response.json();
+console.log(data.createPost.post);`} lang="javascript" />
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>Python</h4>
+          <CodeBlock code={`response = requests.post(
+    "https://api.buffer.com/graphql",
+    headers={
+        "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+        "Content-Type": "application/json",
+    },
+    json={
+        "query": """mutation($input: CreatePostInput!) {
+            createPost(input: $input) {
+                success
+                post { id status scheduledAt }
+                error
+            }
+        }""",
+        "variables": {
+            "input": {
+                "profileId": "prof_abc123",
+                "text": "Excited to share what we've been working on! 🚀",
+                "scheduledAt": "2025-04-01T14:30:00Z"
+            }
+        }
+    },
+)
+
+print(response.json()["data"]["createPost"])`} lang="python" />
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>curl</h4>
+          <CodeBlock code={`curl -X POST https://api.buffer.com/graphql \\
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "mutation($input: CreatePostInput!) { createPost(input: $input) { success post { id status scheduledAt } error } }",
+    "variables": {
+      "input": {
+        "profileId": "prof_abc123",
+        "text": "Excited to share what we've been working on! 🚀",
+        "scheduledAt": "2025-04-01T14:30:00Z"
+      }
+    }
+  }'`} lang="curl" />
         </div>
       )}
 
@@ -1090,6 +1230,49 @@ function APIReferencePage() {
               ))}
             </tbody>
           </table>
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>Schema</h4>
+          <CodeBlock code={`"""
+A single piece of content for one social media profile.
+Lifecycle: DRAFT → QUEUED → SENT (or FAILED).
+Drafts can be edited. Queued posts can be unqueued.
+Sent posts are read-only.
+"""
+type Post {
+  id: ID!
+  text: String!
+  status: PostStatus!
+  profile: Profile!
+  media: [Media!]
+  scheduledAt: DateTime
+  sentAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  tags: [Tag!]!
+  error: String
+  analytics: PostAnalytics
+}`} lang="graphql" />
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>JavaScript</h4>
+          <CodeBlock code={`const response = await fetch("https://api.buffer.com/graphql", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    query: \`{
+      post(id: "post_abc123") {
+        id text status
+        profile { name channel }
+        scheduledAt sentAt
+        tags { name }
+        analytics { impressions likes comments shares }
+      }
+    }\`,
+  }),
+});
+
+const { data } = await response.json();
+console.log(data.post);`} lang="javascript" />
         </div>
       )}
 
@@ -1127,6 +1310,49 @@ function APIReferencePage() {
               ))}
             </tbody>
           </table>
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>Schema</h4>
+          <CodeBlock code={`"""Supported social media platforms."""
+enum Channel {
+  """Instagram — caption up to 2,200 characters"""
+  INSTAGRAM
+  """Facebook — text posts up to 63,206 characters"""
+  FACEBOOK
+  """LinkedIn — text posts up to 3,000 characters"""
+  LINKEDIN
+  """X (formerly Twitter) — text posts up to 280 characters"""
+  X
+  """Bluesky — text posts up to 300 characters"""
+  BLUESKY
+  """Threads — text posts up to 500 characters"""
+  THREADS
+  """TikTok — video caption up to 2,200 characters"""
+  TIKTOK
+  """Pinterest — pin description up to 500 characters"""
+  PINTEREST
+  """YouTube — video description up to 5,000 characters"""
+  YOUTUBE
+  """Mastodon — text posts up to 500 characters (default)"""
+  MASTODON
+}`} lang="graphql" />
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: colors.textDim, margin: "24px 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>JavaScript</h4>
+          <CodeBlock code={`// Filter profiles by channel
+const response = await fetch("https://api.buffer.com/graphql", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    query: \`{
+      profiles(channel: INSTAGRAM) {
+        id name username isConnected
+      }
+    }\`,
+  }),
+});
+
+const { data } = await response.json();
+console.log(data.profiles);`} lang="javascript" />
         </div>
       )}
     </div>
